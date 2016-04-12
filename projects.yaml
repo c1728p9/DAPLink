@@ -57,6 +57,10 @@ projects:
         - *module_bl
         - *module_hic_sam3u2c
         - records/board/sam3u2c_bl.yaml
+    sam3u2c_nrf5x_if:
+        - *module_if
+        - *module_hic_sam3u2c
+        - records/board/nrf5x.yaml
     sam3u2c_nrf51mkit_if:
         - *module_if
         - *module_hic_sam3u2c
