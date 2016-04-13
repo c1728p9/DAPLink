@@ -55,7 +55,8 @@ typedef struct target_cfg {
     uint8_t erase_reset;            /*!< Reset after performing an erase */
 } target_cfg_t;
 
-extern const target_cfg_t target_device;
+extern target_cfg_t target_device;
+void set_correct_target_device(uint32_t device);
 
 #ifdef __cplusplus
 }

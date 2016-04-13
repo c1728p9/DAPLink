@@ -25,7 +25,7 @@
 #include "flash_blob.c"
 
 // target information
-const target_cfg_t target_device = {
+target_cfg_t target_device = {  // Default is nRF51
     .sector_size    = 1024,
     .sector_cnt     = (KB(256) / 1024),
     .flash_start    = 0,
@@ -35,3 +35,24 @@ const target_cfg_t target_device = {
     .flash_algo     = (program_target_t *) &flash,
     .erase_reset    = 1,
 };
+
+target_cfg_t target_device_nrf52 = {
+    .sector_size    = 1024,
+    .sector_cnt     = (KB(256) / 1024),
+    .flash_start    = 0,
+    .flash_end      = KB(256),
+    .ram_start      = 0x20000000,
+    .ram_end        = 0x20008000,
+    .flash_algo     = (program_target_t *) &flash_nrf52,
+    .erase_reset    = 1,
+};
+
+void set_correct_target_device(uint32_t device)
+{
+    if (device == 0) {
+        // Target device already set to nRF51
+    }
+    else if (device == 1) {
+        target_device = target_device_nrf52;
+    }
+}
