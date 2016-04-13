@@ -29,7 +29,7 @@ const char *board_id_nrf51_dk = "1100";
 const char *board_id_nrf51_dongle = "1120";
 const char *board_id_nrf52_dk = "1101";
 
-void prerun_target_config(void)
+void prerun_board_config(void)
 {
     // Work around for setting the correct board id based on GPIOs
     uint8_t bit1;
