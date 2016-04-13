@@ -1,7 +1,7 @@
 common:
     sources:
         board:
-            - source/board/nrf5x.c
+            - source/board/mkit_dk_dongle_nrf5x.c
         target:
             - source/target/nordic/nrf5x/target_32.c
             - source/target/nordic/target_reset.c
