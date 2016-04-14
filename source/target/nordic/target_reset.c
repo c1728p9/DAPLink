@@ -45,24 +45,53 @@ uint8_t target_set_state(TARGET_RESET_STATE state)
 
 void swd_set_target_reset(uint8_t asserted)
 {
+    extern char *board_id;  //TODO - remove
+    uint32_t ap_index_return;
+    uint8_t nrf52_dk_is_used = (   board_id[0] == '1' 
+                                && board_id[1] == '1'
+                                && board_id[2] == '0'
+                                && board_id[3] == '1') ? 1 : 0;  // ID 1101 is the nrf52-dk
+    
     if (asserted) {
         swd_init_debug();
-
-        //Set POWER->RESET on NRF to 1
-        if (!swd_write_ap(AP_TAR, 0x40000000 + 0x544)) {
-            return;
+        
+        if (nrf52_dk_is_used) {
+            swd_read_ap(0x010000FC, &ap_index_return);
+            if (ap_index_return == 0x02880000) {
+                // Device has CTRL-AP
+                swd_write_ap(0x01000000, 1);  // CTRL-AP reset hold
+                os_dly_wait(1);
+                swd_write_ap(0x01000000, 0);  // CTRL-AP reset release
+            }
+            else {
+                // No CTRL-AP - Perform a soft reset
+                uint32_t swd_mem_write_data = 0x05FA0000 /* VECTKEY */ | 0x4 /* SYSRESETREQ */;
+                swd_write_memory(0xE000ED0C, (uint8_t *)&swd_mem_write_data, 4);
+                //os_dly_wait(1);
+            }
         }
+        else {
+            /*  There is no reset pin on the nRF51822, so we need to use special reset routine, 
+                SWDCLK and SWDIO/nRESET needs to be kept low for a minimum of 100uS. Called of this func needs to make sure of this. */
+            //Set POWER->RESET on NRF to 1
+            if (!swd_write_ap(AP_TAR, 0x40000000 + 0x544)) {
+                return;
+            }
 
-        if (!swd_write_ap(AP_DRW, 1)) {
-            return;
+            if (!swd_write_ap(AP_DRW, 1)) {
+                return;
+            }
+
+            //Hold RESET and SWCLK low for a minimum of 100us
+            PIOA->PIO_OER = PIN_SWDIO;
+            PIOA->PIO_OER = PIN_SWCLK;
+            PIN_SWCLK_TCK_CLR();
+            PIN_SWDIO_TMS_CLR();
+            //os_dly_wait(1);
         }
-
-        //Hold RESET and SWCLK low for a minimum of 100us
-        PIN_SWCLK_TCK_CLR();
-        PIN_SWDIO_TMS_CLR();
-        //os_dly_wait(1);
     } else {
         PIN_SWCLK_TCK_SET();
         PIN_SWDIO_TMS_SET();
+        PIOA->PIO_MDER = PIN_SWDIO | PIN_SWCLK | PIN_nRESET;
     }
 }
