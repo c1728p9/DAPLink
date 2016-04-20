@@ -1,5 +1,5 @@
 /**
- * @file    target_32.c
+ * @file    target.c
  * @brief   Target information for the nrf51
  *
  * DAPLink Interface Firmware
@@ -31,7 +31,7 @@ target_cfg_t target_device = {  // Default is nRF51
     .flash_start    = 0,
     .flash_end      = KB(256),
     .ram_start      = 0x20000000,
-    .ram_end        = 0x20008000,
+    .ram_end        = 0x20004000,
     .flash_algo     = (program_target_t *) &flash,
     .erase_reset    = 1,
 };

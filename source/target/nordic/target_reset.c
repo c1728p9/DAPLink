@@ -47,7 +47,9 @@ void swd_set_target_reset(uint8_t asserted)
 {
     extern char *board_id;  //TODO - remove
     uint32_t ap_index_return;
-    uint8_t nrf52_dk_is_used = (   board_id[0] == '1' 
+    uint8_t nrf52_dk_is_used;
+
+    nrf52_dk_is_used =      (   board_id[0] == '1' 
                                 && board_id[1] == '1'
                                 && board_id[2] == '0'
                                 && board_id[3] == '1') ? 1 : 0;  // ID 1101 is the nrf52-dk
