@@ -22,6 +22,7 @@
 #include "target_reset.h"
 #include "swd_host.h"
 #include "DAP_Config.h"
+#include "info.h"
 
 void target_before_init_debug(void)
 {
@@ -45,7 +46,8 @@ uint8_t target_set_state(TARGET_RESET_STATE state)
 
 void swd_set_target_reset(uint8_t asserted)
 {
-    extern char *board_id;  //TODO - remove
+    const char *board_id;
+    board_id = info_get_board_id();
     uint32_t ap_index_return;
     uint8_t nrf52_dk_is_used;
 
