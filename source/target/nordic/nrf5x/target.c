@@ -47,7 +47,7 @@ target_cfg_t target_device_nrf52 = {
     .erase_reset    = 1,
 };
 
-void set_correct_target_device(uint32_t device)
+void set_target_device(uint32_t device)
 {
     if (device == 0) {
         // Target device already set to nRF51

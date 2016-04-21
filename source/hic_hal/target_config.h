@@ -56,7 +56,7 @@ typedef struct target_cfg {
 } target_cfg_t;
 
 extern target_cfg_t target_device;
-void set_correct_target_device(uint32_t device);
+void set_target_device(uint32_t device);
 
 #ifdef __cplusplus
 }

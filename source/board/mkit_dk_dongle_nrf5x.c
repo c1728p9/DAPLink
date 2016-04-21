@@ -48,19 +48,19 @@ void prerun_board_config(void)
     
     if (!bit2 && bit1) {
         board_id = board_id_nrf51_dk;  // 1100
-        set_correct_target_device(0);
+        set_target_device(0);
     }
     else if (!bit2 && !bit1) {
         board_id = board_id_nrf51_dongle;  // 1120
-        set_correct_target_device(0);
+        set_target_device(0);
     }
     else if (bit2 && !bit1) {
         board_id = board_id_nrf52_dk;  // 1101
-        set_correct_target_device(1);
+        set_target_device(1);
     }
     else { //mkit
         board_id = board_id_nrf51_mkit;  // 1070
-        set_correct_target_device(0);
+        set_target_device(0);
     }
     
     PIOB->PIO_PUDR = (1 << 1); // Disable pull-up 
