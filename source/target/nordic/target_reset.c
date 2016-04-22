@@ -55,17 +55,14 @@ void swd_set_target_reset(uint8_t asserted)
                                 && board_id[1] == '1'
                                 && board_id[2] == '0'
                                 && board_id[3] == '1') ? 1 : 0;  // ID 1101 is the nrf52-dk
-    
-    if (asserted) {
-        swd_init_debug();
-        
-        if (nrf52_dk_is_used) {
+    if (nrf52_dk_is_used) {
+        if (asserted) {
+            swd_init_debug();
+            
             swd_read_ap(0x010000FC, &ap_index_return);
             if (ap_index_return == 0x02880000) {
                 // Device has CTRL-AP
                 swd_write_ap(0x01000000, 1);  // CTRL-AP reset hold
-                os_dly_wait(1);
-                swd_write_ap(0x01000000, 0);  // CTRL-AP reset release
             }
             else {
                 // No CTRL-AP - Perform a soft reset
@@ -74,7 +71,22 @@ void swd_set_target_reset(uint8_t asserted)
                 //os_dly_wait(1);
             }
         }
-        else {
+        else {           
+            swd_read_ap(0x010000FC, &ap_index_return);
+            if (ap_index_return == 0x02880000) {
+                // Device has CTRL-AP
+                swd_write_ap(0x01000000, 0);  // CTRL-AP reset release
+            }
+            else {
+                // No CTRL-AP - Soft reset has been performed
+            }
+            PIOA->PIO_MDER = PIN_SWDIO | PIN_SWCLK | PIN_nRESET;
+        }
+    }
+    else {
+        if (asserted) {
+            swd_init_debug();
+            
             /*  There is no reset pin on the nRF51822, so we need to use special reset routine, 
                 SWDCLK and SWDIO/nRESET needs to be kept low for a minimum of 100uS. Called of this func needs to make sure of this. */
             //Set POWER->RESET on NRF to 1
@@ -93,9 +105,10 @@ void swd_set_target_reset(uint8_t asserted)
             PIN_SWDIO_TMS_CLR();
             //os_dly_wait(1);
         }
-    } else {
-        PIN_SWCLK_TCK_SET();
-        PIN_SWDIO_TMS_SET();
-        PIOA->PIO_MDER = PIN_SWDIO | PIN_SWCLK | PIN_nRESET;
+        else {
+            PIN_SWCLK_TCK_SET();
+            PIN_SWDIO_TMS_SET();
+            PIOA->PIO_MDER = PIN_SWDIO | PIN_SWCLK | PIN_nRESET;
+        }
     }
 }
