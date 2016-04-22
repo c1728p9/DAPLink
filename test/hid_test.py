@@ -93,6 +93,10 @@ def test_hid(workspace, parent_test):
             addr = 0x20000001
             size = 0x502
             addr_flash = 0x20000
+        elif target_type == "nrf52":
+            addr = 0x20000001
+            size = 0x502
+            addr_flash = 0x20000
         elif target_type == "lpc4330":
             addr = 0x10000001
             size = 0x1102
@@ -115,7 +119,7 @@ def test_hid(workspace, parent_test):
             size = 0x502
             addr_flash = 0x4000
         else:
-            raise Exception("A board is not supported by this test script.")
+            raise Exception("A board is not supported by this test script. Target_type: {} is unkown".format(target_type))
 
         target = mbed_board.target
         flash = mbed_board.flash

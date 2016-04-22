@@ -63,6 +63,7 @@ SUPPORTED_CONFIGURATIONS = [
 
 BOARD_ID_TO_BUILD_TARGET = {config[0]: config[3] for config in
                             SUPPORTED_CONFIGURATIONS}
+    'Nordic-nRF5x-mkit-DK-Dongle': 0x1101,
 
 BOARD_ID_LOCKED_WHEN_ERASED = set([
     0x0231,  # K22F
@@ -83,6 +84,7 @@ TARGET_WITH_BAD_VECTOR_TABLE_LIST = [
     'Nordic-nRF51-DK',
     'Nordic-nRF51822',
     'Nordic-nRF51-Dongle',
+    'Nordic-nRF5x-mkit-DK-Dongle',
     'Seeed-Arch-BLE',
     'mbed-HRM1017',
     'Switch-Science-mbed-TY51822r3',
