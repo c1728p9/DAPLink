@@ -18,6 +18,9 @@ module:
         - records/daplink/drag-n-drop.yaml
         - records/daplink/settings.yaml
         - records/daplink/settings_rom_stub.yaml
+    update: &module_update
+        - *module_tools
+        - records/daplink/update.yaml
     if: &module_if
         - *module_tools
         - records/usb/usb-core.yaml
@@ -57,6 +60,15 @@ projects:
         - *module_bl
         - *module_hic_sam3u2c
         - records/board/sam3u2c_bl.yaml
+    kl26z_update:
+        - *module_update
+        - *module_hic_kl26z
+    k20dx_update:
+        - *module_update
+        - *module_hic_k20dx
+    sam3u2c_update:
+        - *module_update
+        - *module_hic_sam3u2c
     sam3u2c_nrf51mkit_if:
         - *module_if
         - *module_hic_sam3u2c
