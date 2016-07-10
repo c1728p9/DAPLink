@@ -42,12 +42,12 @@ SUPPORTED_CONFIGURATIONS = [
     (   0x1018,     'lpc11u35_ssci824_if',              None,               'Switch-Science-mbed-LPC824'    ),
     (   0x1019,     'lpc11u35_sscity_if',               None,               'Switch-Science-mbed-TY51822r3' ),
     (   0x1050,     'lpc11u35_lpc812xpresso_if',        None,               'NXP-LPC800-MAX'                ),
-    (   0x1070,     'sam3u2c_nrf51mkit_if',             'sam3u2c_bl',       'Nordic-nRF51822'               ),
+    (   0x1070,     'sam3u2c_mkit_dk_dongle_nrf5x_if',  'sam3u2c_bl',       'Nordic-nRF51822'               ),
     (   0x1090,     'k20dx_rbl_if',                     'k20dx_bl',         'RedBearLab-nRF51822'           ),
     (   0x1095,     'k20dx_rblnano_if',                 'k20dx_bl',         'RedBearLab-BLE-Nano'           ),
-    (   0x1100,     'sam3u2c_nrf51dk_if',               'sam3u2c_bl',       'Nordic-nRF51-DK'               ),
+    (   0x1100,     'sam3u2c_mkit_dk_dongle_nrf5x_if',  'sam3u2c_bl',       'Nordic-nRF51-DK'               ),
     (   0x1114,     'lpc11u35_ssci1114_if',             None,               'LPC1114FN28'                   ),
-    (   0x1120,     'sam3u2c_nrf51dongle_if',           'sam3u2c_bl',       'Nordic-nRF51-Dongle'           ),
+    (   0x1120,     'sam3u2c_mkit_dk_dongle_nrf5x_if',  'sam3u2c_bl',       'Nordic-nRF51-Dongle'           ),
     (   0x1234,     'lpc11u35_c027_if',                 None,               'u-blox-C027'                   ),
     (   0x2015,     'lpc11u35_efm32gg_stk_if',          None,               None                            ),
     (   0x5050,     'lpc11u35_arm_watch_stm32f411_if',  None,               None                            ),
@@ -63,7 +63,6 @@ SUPPORTED_CONFIGURATIONS = [
 
 BOARD_ID_TO_BUILD_TARGET = {config[0]: config[3] for config in
                             SUPPORTED_CONFIGURATIONS}
-    'Nordic-nRF5x-mkit-DK-Dongle': 0x1101,
 
 BOARD_ID_LOCKED_WHEN_ERASED = set([
     0x0231,  # K22F
@@ -84,7 +83,6 @@ TARGET_WITH_BAD_VECTOR_TABLE_LIST = [
     'Nordic-nRF51-DK',
     'Nordic-nRF51822',
     'Nordic-nRF51-Dongle',
-    'Nordic-nRF5x-mkit-DK-Dongle',
     'Seeed-Arch-BLE',
     'mbed-HRM1017',
     'Switch-Science-mbed-TY51822r3',
