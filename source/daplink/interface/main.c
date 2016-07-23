@@ -174,6 +174,15 @@ os_mbx_declare(serial_mailbox, 20);
 #define SIZE_DATA (64)
 static uint8_t data[SIZE_DATA];
 
+static void flush_cdc_buffers(void)
+{
+    // Empty the USB RX CDC buffer
+    int32_t len_data;
+    do {
+        len_data = USBD_CDC_ACM_DataRead(data, SIZE_DATA);
+    } while (len_data > 0);
+}
+
 __task void serial_process()
 {
     UART_Configuration config;
@@ -190,14 +199,17 @@ __task void serial_process()
                     break;
 
                 case SERIAL_UNINITIALIZE:
+                    flush_cdc_buffers();
                     uart_uninitialize();
                     break;
 
                 case SERIAL_RESET:
+                    flush_cdc_buffers();
                     uart_reset();
                     break;
 
                 case SERIAL_SET_CONFIGURATION:
+                    flush_cdc_buffers();
                     serial_get_configuration(&config);
                     uart_set_configuration(&config);
                     break;
