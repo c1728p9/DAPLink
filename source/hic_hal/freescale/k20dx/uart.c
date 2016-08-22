@@ -107,6 +107,7 @@ int32_t uart_set_configuration(UART_Configuration *config)
     uint32_t dll;
     // disable interrupt
     NVIC_DisableIRQ(UART1_RX_TX_IRQn);
+    UART1->C2 &= ~(UART_C2_RIE_MASK | UART_C2_TIE_MASK);
     // Disable receiver and transmitter while updating
     UART1->C2 &= ~(UART_C2_RE_MASK | UART_C2_TE_MASK);
     clear_buffers();
@@ -148,6 +149,7 @@ int32_t uart_set_configuration(UART_Configuration *config)
     // Enable UART interrupt
     NVIC_ClearPendingIRQ(UART1_RX_TX_IRQn);
     NVIC_EnableIRQ(UART1_RX_TX_IRQn);
+    UART1->C2 |= UART_C2_RIE_MASK;
     return 1;
 }
 
