@@ -81,11 +81,11 @@ void gpio_init(void)
         GPIO_SetBits(POWER_EN_PIN_PORT, POWER_EN_PIN);
     }
     // Config ReadOut protection
-    if(FLASH_GetReadOutProtectionStatus() != SET) {
-        FLASH_Unlock();
-        FLASH_ReadOutProtection(ENABLE);
-        FLASH_Lock();
-    }
+//    if(FLASH_GetReadOutProtectionStatus() != SET) {
+//        FLASH_Unlock();
+//        FLASH_ReadOutProtection(ENABLE);
+//        FLASH_Lock();
+//    }
     // Let the voltage rails stabilize.  This is especailly important
     // during software resets, since the target's 3.3v rail can take
     // 20-50ms to drain.  During this time the target could be driving
