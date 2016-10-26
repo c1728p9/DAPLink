@@ -24,6 +24,8 @@
 #include "MK20D5.h"
 #include "cortex_m.h"
 #include "util.h"
+#include "daplink_debug.h"
+#include "util.h"
 
 #define __NO_USB_LIB_C
 #include "usb_config.c"
@@ -90,6 +92,7 @@ inline static void protected_xor(uint32_t *addr, uint32_t val)
 void          USBD_IntrEna(void)
 {
     NVIC_EnableIRQ(USB0_IRQn);            /* Enable OTG interrupt */
+    NVIC_SetPriority(USB0_IRQn, 0);
 }
 
 
@@ -531,6 +534,7 @@ U32 USBD_GetError(void)
 void USB0_IRQHandler(void)
 {
     NVIC_DisableIRQ(USB0_IRQn);
+    NVIC_DisableIRQ(UART1_RX_TX_IRQn);
     USBD_SignalHandler();
 }
 
@@ -542,11 +546,16 @@ void USBD_Handler(void)
 {
     uint32_t istr, num, dir, ev_odd, stat;
     istr  = USB0->ISTAT;
-    
 
-
-    //istr &= USB0->INTEN;
-    
+    static char buf[64];
+    uint32_t idx = 0;
+    idx += util_write_string(buf + idx, "F ");
+    idx += util_write_hex16(buf + idx, USBD_GetFrame());
+    idx += util_write_string(buf + idx, ",");
+    idx += util_write_hex8(buf + idx, istr);
+    //idx += util_write_uint32(buf + idx, USBD_GetFrame());
+    idx += util_write_string(buf + idx, "\r\n");
+    daplink_debug((uint8_t*)buf, idx);
     
     /* reset interrupt                                                            */
     if (istr & USB_ISTAT_USBRST_MASK) {
@@ -625,6 +634,12 @@ void USBD_Handler(void)
 #ifdef __RTX
         LastError = USB0->ERRSTAT;
 
+        idx = 0;
+        idx += util_write_string(buf + idx, "E ");
+        idx += util_write_hex8(buf + idx, LastError);
+        idx += util_write_string(buf + idx, "\r\n");
+        daplink_debug((uint8_t*)buf, idx);
+        
         if (USBD_RTX_DevTask) {
             isr_evt_set(USBD_EVT_ERROR, USBD_RTX_DevTask);
         }
@@ -649,6 +664,12 @@ void USBD_Handler(void)
         num    = (stat >> 4) & 0x0F;
         dir    = (stat >> 3) & 0x01;
         ev_odd = (stat >> 2) & 0x01;
+        
+        idx = 0;
+        idx += util_write_string(buf + idx, "T ");
+        idx += util_write_hex8(buf + idx, BD[IDX(num, dir, ev_odd)].stat);
+        idx += util_write_string(buf + idx, "\r\n");
+        daplink_debug((uint8_t*)buf, idx);
 
         /* setup packet                                                               */
         if ((num == 0) && (TOK_PID((IDX(num, dir, ev_odd))) == SETUP_TOKEN)) {
@@ -718,8 +739,11 @@ void USBD_Handler(void)
         while (USB0->ISTAT & USB_ISTAT_STALL_MASK) {
             USB0->ISTAT = USB_ISTAT_STALL_MASK;
         }
+        daplink_debug((uint8_t*)"S\r\n", sizeof("S\r\n")-1);
     }
     
     USB0->ISTAT = istr;
+    NVIC_ClearPendingIRQ(USB0_IRQn);
     NVIC_EnableIRQ(USB0_IRQn);
+    //NVIC_EnableIRQ(UART1_RX_TX_IRQn);
 }

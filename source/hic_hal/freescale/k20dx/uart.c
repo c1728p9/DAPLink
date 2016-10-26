@@ -230,12 +230,29 @@ int32_t uart_read_data(uint8_t *data, uint16_t size)
     return 0;
 }
 
+void uart_poll(void)
+{
+    if (UART1->S1 & UART_S1_TDRE_MASK) {
+        cortex_int_state_t state;
+        state = cortex_int_get_and_disable();
+
+        // Send out data
+        if (write_buffer.cnt_in != write_buffer.cnt_out) {
+            UART1->D = write_buffer.data[write_buffer.idx_out++];
+            write_buffer.idx_out &= (BUFFER_SIZE - 1);
+            write_buffer.cnt_out++;
+        }
+        
+        cortex_int_restore(state);
+    }
+}
+
 void UART1_RX_TX_IRQHandler(void)
 {
     uint32_t s1;
     volatile uint8_t errorData;
     cortex_int_state_t state;
-    state = cortex_int_get_and_disable();
+    //state = cortex_int_get_and_disable();
     // read interrupt status
     s1 = UART1->S1;
     // mask off interrupts that are not enabled
@@ -259,6 +276,7 @@ void UART1_RX_TX_IRQHandler(void)
             // disable TIE interrupt
             UART1->C2 &= ~(UART_C2_TIE_MASK);
         }
+        NVIC_DisableIRQ(UART1_RX_TX_IRQn);
     }
 
     // handle received character
@@ -272,5 +290,5 @@ void UART1_RX_TX_IRQHandler(void)
             //read_buffer.cnt_in++;
         }
     }
-    cortex_int_restore(state);
+    //cortex_int_restore(state);
 }

@@ -95,6 +95,12 @@ __task void timer_task_30mS(void)
 
         if (!(i++ % 3)) {
             os_evt_set(FLAGS_MAIN_90MS, main_task_id);
+            //char buf[16];
+            //int idx = 0;
+            //idx += util_write_string(buf + idx, "CNT: 0x");
+            //idx += util_write_uint32(buf + idx, i);
+            //idx += util_write_string(buf + idx, "\r\n");
+            //daplink_debug((uint8_t*)buf, idx);
         }
     }
 }
@@ -195,6 +201,8 @@ extern __task void hid_process(void);
 __attribute__((weak)) void prerun_board_config(void) {}
 __attribute__((weak)) void prerun_target_config(void) {}
 
+void uart_poll(void);
+    
 __task void main_task(void)
 {
     // State processing
@@ -253,13 +261,18 @@ __task void main_task(void)
     os_tsk_create_user(timer_task_30mS, TIMER_TASK_30_PRIORITY, (void *)stk_timer_30_task, TIMER_TASK_30_STACK);
 
     while (1) {
-        os_evt_wait_or(FLAGS_MAIN_RESET             // Put target in reset state
+        OS_RESULT ret = os_evt_wait_or(FLAGS_MAIN_RESET             // Put target in reset state
                        | FLAGS_MAIN_90MS            // 90mS tick
                        | FLAGS_MAIN_30MS            // 30mS tick
                        | FLAGS_MAIN_POWERDOWN       // Power down interface
                        | FLAGS_MAIN_DISABLEDEBUG    // Disable target debug
                        | FLAGS_MAIN_PROC_USB        // process usb events
-                       , NO_TIMEOUT);
+                       , 0/*NO_TIMEOUT*/);
+        if (OS_R_TMO == ret) {
+            uart_poll();
+            continue;
+        }
+        
         // Find out what event happened
         flags = os_evt_get();
 
