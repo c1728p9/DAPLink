@@ -28,14 +28,17 @@
 #include "stdint.h"
 #include "RTL.h"
 #include "rl_usb.h"
-#include "macro.h"
+//#include "macro.h"
+#include "uart.h"
+
+#define DL_MIN(a,b)                        ((a) < (b) ? (a) : (b))
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #ifndef MSC_DEBUG
-//#define MSC_DEBUG
+#define MSC_DEBUG
 #endif
 
 #if defined (MSC_DEBUG)
@@ -47,7 +50,7 @@ static inline uint32_t daplink_debug(uint8_t *buf, uint32_t size)
     uint32_t total_free;
     uint32_t write_free;
     uint32_t error_len = strlen(error_msg);
-    total_free = USBD_CDC_ACM_DataFree();
+    total_free = uart_write_free();
 
     if (total_free < error_len) {
         // No space
@@ -56,11 +59,11 @@ static inline uint32_t daplink_debug(uint8_t *buf, uint32_t size)
 
     // Size available for writing
     write_free = total_free - error_len;
-    size = MIN(write_free, size);
-    USBD_CDC_ACM_DataSend(buf, size);
+    size = DL_MIN(write_free, size);
+    uart_write_data(buf, size);
 
     if (write_free == size) {
-        USBD_CDC_ACM_DataSend((uint8_t *)error_msg, error_len);
+        uart_write_data((uint8_t *)error_msg, error_len);
     }
 
     return size;

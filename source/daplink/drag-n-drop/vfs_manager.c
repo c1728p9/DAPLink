@@ -449,7 +449,7 @@ static void file_data_handler(uint32_t sector, const uint8_t *buf, uint32_t num_
                 }
 
                 file_transfer_state.last_ooo_sector =
-                    MIN(file_transfer_state.last_ooo_sector, sector);
+                    DL_MIN(file_transfer_state.last_ooo_sector, sector);
             } else {
                 vfs_mngr_printf("    sector not part of file transfer\r\n");
             }

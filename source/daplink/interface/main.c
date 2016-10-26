@@ -39,6 +39,7 @@
 #include "daplink.h"
 #include "util.h"
 #include "DAP.h"
+#include "daplink_debug.h"
 
 // Event flags for main task
 // Timers events
@@ -176,7 +177,6 @@ static uint8_t data[SIZE_DATA];
 
 __task void serial_process()
 {
-    UART_Configuration config;
     int32_t len_data = 0;
     void *msg;
 
@@ -184,60 +184,10 @@ __task void serial_process()
         // Check our mailbox to see if we need to set anything up with the UART
         // before we do any sending or receiving
         if (os_mbx_wait(&serial_mailbox, &msg, 0) == OS_R_OK) {
-            switch ((SERIAL_MSG)(unsigned)msg) {
-                case SERIAL_INITIALIZE:
-                    uart_initialize();
-                    break;
-
-                case SERIAL_UNINITIALIZE:
-                    uart_uninitialize();
-                    break;
-
-                case SERIAL_RESET:
-                    uart_reset();
-                    break;
-
-                case SERIAL_SET_CONFIGURATION:
-                    serial_get_configuration(&config);
-                    uart_set_configuration(&config);
-                    break;
-
-                default:
-                    break;
-            }
+            // Do nothing
         }
 
-        len_data = USBD_CDC_ACM_DataFree();
-
-        if (len_data > SIZE_DATA) {
-            len_data = SIZE_DATA;
-        }
-
-        if (len_data) {
-            len_data = uart_read_data(data, len_data);
-        }
-
-        if (len_data) {
-            if (USBD_CDC_ACM_DataSend(data , len_data)) {
-                main_blink_cdc_led(MAIN_LED_OFF);
-            }
-        }
-
-        len_data = uart_write_free();
-
-        if (len_data > SIZE_DATA) {
-            len_data = SIZE_DATA;
-        }
-
-        if (len_data) {
-            len_data = USBD_CDC_ACM_DataRead(data, len_data);
-        }
-
-        if (len_data) {
-            if (uart_write_data(data, len_data)) {
-                main_blink_cdc_led(MAIN_LED_OFF);
-            }
-        }
+        USBD_CDC_ACM_DataRead(data, len_data);
     }
 }
 
@@ -273,6 +223,21 @@ __task void main_task(void)
     gpio_set_msc_led(GPIO_LED_ON);
     // Initialize the DAP
     DAP_Setup();
+    
+    UART_Configuration config;
+    uart_initialize();
+    serial_get_configuration(&config);
+    config.Baudrate = 1500000;//460800;
+    config.DataBits = UART_DATA_BITS_8;
+    config.FlowControl = UART_FLOW_CONTROL_NONE;
+    config.Parity = UART_PARITY_NONE;
+    config.StopBits =UART_STOP_BITS_1;
+    uart_set_configuration(&config);
+    
+    uart_write_data((uint8_t*)"Hello world\r\n", sizeof("Hello world\r\n")-1);
+    
+    daplink_debug_print("Printf hello world\r\n");
+                    
     // do some init with the target before USB and files are configured
     prerun_board_config();
     prerun_target_config();

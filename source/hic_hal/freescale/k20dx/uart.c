@@ -31,7 +31,7 @@ extern uint32_t SystemCoreClock;
 static void clear_buffers(void);
 
 // Size must be 2^n for using quick wrap around
-#define  BUFFER_SIZE (512)
+#define  BUFFER_SIZE (1024 * 2)
 
 struct {
     uint8_t  data[BUFFER_SIZE];
@@ -39,17 +39,17 @@ struct {
     volatile uint32_t idx_out;
     volatile uint32_t cnt_in;
     volatile uint32_t cnt_out;
-} write_buffer, read_buffer;
+} write_buffer;
 
 void clear_buffers(void)
 {
-    util_assert(!(UART1->C2 & UART_C2_TIE_MASK));
-    memset((void *)&read_buffer, 0xBB, sizeof(read_buffer.data));
-    read_buffer.idx_in = 0;
-    read_buffer.idx_out = 0;
-    read_buffer.cnt_in = 0;
-    read_buffer.cnt_out = 0;
-    memset((void *)&write_buffer, 0xBB, sizeof(read_buffer.data));
+    //util_assert(!(UART1->C2 & UART_C2_TIE_MASK));
+    //memset((void *)&read_buffer, 0xBB, sizeof(read_buffer.data));
+    //read_buffer.idx_in = 0;
+    //read_buffer.idx_out = 0;
+    //read_buffer.cnt_in = 0;
+    //read_buffer.cnt_out = 0;
+    memset((void *)&write_buffer, 0xBB, sizeof(write_buffer.data));
     write_buffer.idx_in = 0;
     write_buffer.idx_out = 0;
     write_buffer.cnt_in = 0;
@@ -80,6 +80,7 @@ int32_t uart_initialize(void)
     PORTC->PCR[4] = (3 << 8);
     // Enable receive interrupt
     UART1->C2 |= UART_C2_RIE_MASK;
+    NVIC_SetPriority(UART1_RX_TX_IRQn, 0xFF);
     NVIC_ClearPendingIRQ(UART1_RX_TX_IRQn);
     NVIC_EnableIRQ(UART1_RX_TX_IRQn);
     return 1;
@@ -206,32 +207,35 @@ int32_t uart_write_data(uint8_t *data, uint16_t size)
 
 int32_t uart_read_data(uint8_t *data, uint16_t size)
 {
-    uint32_t cnt;
-
-    if (size == 0) {
-        return 0;
-    }
-
-    cnt = 0;
-
-    while (size--) {
-        if (read_buffer.cnt_in != read_buffer.cnt_out) {
-            *data++ = read_buffer.data[read_buffer.idx_out++];
-            read_buffer.idx_out &= (BUFFER_SIZE - 1);
-            read_buffer.cnt_out++;
-            cnt++;
-        } else {
-            break;
-        }
-    }
-
-    return cnt;
+    //uint32_t cnt;
+    //
+    //if (size == 0) {
+    //    return 0;
+    //}
+    //
+    //cnt = 0;
+    //
+    //while (size--) {
+    //    if (read_buffer.cnt_in != read_buffer.cnt_out) {
+    //        *data++ = read_buffer.data[read_buffer.idx_out++];
+    //        read_buffer.idx_out &= (BUFFER_SIZE - 1);
+    //        read_buffer.cnt_out++;
+    //        cnt++;
+    //    } else {
+    //        break;
+    //    }
+    //}
+    //
+    //return cnt;
+    return 0;
 }
 
 void UART1_RX_TX_IRQHandler(void)
 {
     uint32_t s1;
     volatile uint8_t errorData;
+    cortex_int_state_t state;
+    state = cortex_int_get_and_disable();
     // read interrupt status
     s1 = UART1->S1;
     // mask off interrupts that are not enabled
@@ -262,9 +266,11 @@ void UART1_RX_TX_IRQHandler(void)
         if ((s1 & UART_S1_NF_MASK) || (s1 & UART_S1_FE_MASK)) {
             errorData = UART1->D;
         } else {
-            read_buffer.data[read_buffer.idx_in++] = UART1->D;
-            read_buffer.idx_in &= (BUFFER_SIZE - 1);
-            read_buffer.cnt_in++;
+            UART1->D;
+            //read_buffer.data[read_buffer.idx_in++] = UART1->D;
+            //read_buffer.idx_in &= (BUFFER_SIZE - 1);
+            //read_buffer.cnt_in++;
         }
     }
+    cortex_int_restore(state);
 }
