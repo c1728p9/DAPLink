@@ -35,6 +35,7 @@
 #include "info.h"
 #include "gpio.h"           // for gpio_get_sw_reset
 #include "flash_intf.h"     // for flash_intf_target
+#include "log.h"
 
 // Must be bigger than 4x the flash size of the biggest supported
 // device.  This is to accomodate for hex file programming.
@@ -100,6 +101,8 @@ void vfs_user_build_filesystem()
         file_handle = vfs_create_file(assert_file, read_file_assert_txt, 0, file_size);
         vfs_file_set_attr(file_handle, (vfs_file_attr_bit_t)0); // Remove read only attribute
     }
+
+    log_build_filesystem();
 
     // NEED_BL.TXT
     volatile uint32_t bl_start = DAPLINK_ROM_BL_START; // Silence warnings about null pointer
