@@ -24,6 +24,7 @@
 #include "MK20D5.h"
 #include "cortex_m.h"
 #include "util.h"
+#include "log.h"
 
 #define __NO_USB_LIB_C
 #include "usb_config.c"
@@ -124,6 +125,7 @@ void USBD_Init(void)
     USB0->INTEN =                            USB_INTEN_USBRSTEN_MASK |
             USB_INTEN_TOKDNEEN_MASK |
             USB_INTEN_SLEEPEN_MASK  |
+            USB_INTEN_ERROREN_MASK  |
 #ifdef __RTX
             ((USBD_RTX_DevTask   != 0) ? USB_INTEN_SOFTOKEN_MASK : 0) |
             ((USBD_RTX_DevTask   != 0) ? USB_INTEN_ERROREN_MASK  : 0) ;
@@ -615,7 +617,7 @@ void USBD_Handler(void)
     }
 
     /* Error interrupt                                                            */
-    if (istr == USB_ISTAT_ERROR_MASK) {
+    if (istr & USB_ISTAT_ERROR_MASK) {
 #ifdef __RTX
         LastError = USB0->ERRSTAT;
 
@@ -630,6 +632,14 @@ void USBD_Handler(void)
         }
 
 #endif
+        volatile extern uint32_t os_time;
+        log_lock();
+        log_write_uint32(os_time);
+        log_write_string(" - USB ERRSTAT: 0x");
+        log_write_hex8(USB0->ERRSTAT);
+        log_write_string("\r\n");
+        log_unlock();
+
         USB0->ERRSTAT = 0xFF;
     }
 

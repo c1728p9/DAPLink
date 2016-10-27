@@ -39,6 +39,7 @@
 #include "daplink.h"
 #include "util.h"
 #include "DAP.h"
+#include "log.h"
 
 // Event flags for main task
 // Timers events
@@ -286,6 +287,12 @@ __task void main_task(void)
     usb_state_count = USB_CONNECT_DELAY;
     // Start timer tasks
     os_tsk_create_user(timer_task_30mS, TIMER_TASK_30_PRIORITY, (void *)stk_timer_30_task, TIMER_TASK_30_STACK);
+
+    volatile extern uint32_t os_time;
+    log_lock();
+    log_write_uint32(os_time);
+    log_write_string(" - system boot\r\n");
+    log_unlock();
 
     while (1) {
         os_evt_wait_or(FLAGS_MAIN_RESET             // Put target in reset state

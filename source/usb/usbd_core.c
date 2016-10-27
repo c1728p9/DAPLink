@@ -24,6 +24,7 @@
 #include "string.h"
 #include "usb_for_lib.h"
 #include "info.h"
+#include "log.h"
 
 U16 USBD_DeviceStatus;
 U8 USBD_DeviceAddress;
@@ -966,6 +967,19 @@ out_class_ok:                                                            /* requ
 
                         default:
 stall_i:
+                            {
+                                volatile extern uint32_t os_time;
+                                int i;
+                                char *packet = (char *)&USBD_SetupPacket;
+                                log_lock();
+                                log_write_uint32(os_time);
+                                log_write_string(" - BAD SetupPacket: ");
+                                for (i = 0; i < sizeof(USBD_SetupPacket); i++) {
+                                    log_write_hex8(packet[i]);
+                                }
+                                log_write_string("\r\n");
+                                log_unlock();
+                            }
                             USBD_SetStallEP(0x80);
                             USBD_EP0Data.Count = 0;
                             break;
