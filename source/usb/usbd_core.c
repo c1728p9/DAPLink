@@ -913,6 +913,20 @@ setup_class_ok:                                                          /* requ
 
             default:
 stall:
+                {
+                    volatile extern uint32_t os_time;
+                    int i;
+                    char *packet = (char *)&USBD_SetupPacket;
+                    log_lock();
+                    log_write_uint32(os_time);
+                    log_write_string(" - BAD SetupPacket: ");
+                    for (i = 0; i < sizeof(USBD_SetupPacket); i++) {
+                        log_write_hex8(packet[i]);
+                    }
+                    log_write_string("\r\n");
+                    log_unlock();
+                }
+            
                 if ((USBD_SetupPacket.bmRequestType.Dir == REQUEST_HOST_TO_DEVICE) &&
                         (USBD_SetupPacket.wLength != 0)) {
                     USBD_SetStallEP(0x00);
@@ -973,7 +987,7 @@ stall_i:
                                 char *packet = (char *)&USBD_SetupPacket;
                                 log_lock();
                                 log_write_uint32(os_time);
-                                log_write_string(" - BAD SetupPacket: ");
+                                log_write_string(" - BAD SetupPacket2: ");
                                 for (i = 0; i < sizeof(USBD_SetupPacket); i++) {
                                     log_write_hex8(packet[i]);
                                 }
