@@ -260,6 +260,8 @@ __task void main_task(void)
     uint8_t thread_started = 0;
     // button state
     main_reset_state_t main_reset_button_state = MAIN_RESET_RELEASED;
+    // Logging
+    log_init();
     // Initialize settings
     config_init();
     // Initialize our serial mailbox
