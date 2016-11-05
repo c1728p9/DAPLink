@@ -51,8 +51,8 @@ uint32_t Data1  = 0x55555555;
 
 #define TX    1
 #define RX    0
-#define ODD   0
-#define EVEN  1
+#define EVEN  0
+#define ODD   1
 #define IDX(Ep, dir, Ev_Odd) ((((Ep & 0x0F) * 4) + (2 * dir) + (1 *  Ev_Odd)))
 
 #define SETUP_TOKEN    0x0D
@@ -172,12 +172,12 @@ void USBD_Reset(void)
     }
 
     /* EP0 control endpoint                                                     */
-    BD[IDX(0, RX, ODD)].bc       = USBD_MAX_PACKET0;
-    BD[IDX(0, RX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(0, RX, ODD)][0]);
-    BD[IDX(0, RX, ODD)].stat     = BD_OWN_MASK | BD_DTS_MASK | BD_DATA01_MASK;
-    BD[IDX(0, RX, EVEN)].stat     = 0;
-    BD[IDX(0, TX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(0, TX, ODD)][0]);
-    BD[IDX(0, TX, EVEN)].buf_addr = 0;
+    BD[IDX(0, RX, EVEN)].bc       = USBD_MAX_PACKET0;
+    BD[IDX(0, RX, EVEN)].buf_addr = (uint32_t) & (EPBuf[IDX(0, RX, EVEN)][0]);
+    BD[IDX(0, RX, EVEN)].stat     = BD_OWN_MASK | BD_DTS_MASK | BD_DATA01_MASK;
+    BD[IDX(0, RX, ODD)].stat     = 0;
+    BD[IDX(0, TX, EVEN)].buf_addr = (uint32_t) & (EPBuf[IDX(0, TX, EVEN)][0]);
+    BD[IDX(0, TX, ODD)].buf_addr = 0;
     USB0->ENDPOINT[0].ENDPT = USB_ENDPT_EPHSHK_MASK | /* enable ep handshaking  */
                               USB_ENDPT_EPTXEN_MASK | /* enable TX (IN) tran.   */
                               USB_ENDPT_EPRXEN_MASK;  /* enable RX (OUT) tran.  */
@@ -360,14 +360,14 @@ void USBD_ResetEP(uint32_t EPNum)
     if (EPNum & 0x80) {
         EPNum &= 0x0F;
         protected_or(&Data1, (1 << ((EPNum * 2) + 1)));
-        BD[IDX(EPNum, TX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, TX, ODD)][0]);
-        BD[IDX(EPNum, TX, EVEN)].buf_addr = 0;
+        BD[IDX(EPNum, TX, EVEN)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, TX, EVEN)][0]);
+        BD[IDX(EPNum, TX, ODD)].buf_addr = 0;
     } else {
         protected_and(&Data1, ~(1 << (EPNum * 2)));
-        BD[IDX(EPNum, RX, ODD)].bc       = OutEpSize[EPNum];
-        BD[IDX(EPNum, RX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, ODD)][0]);
-        BD[IDX(EPNum, RX, ODD)].stat     = BD_OWN_MASK | BD_DTS_MASK;
-        BD[IDX(EPNum, RX, EVEN)].stat     = 0;
+        BD[IDX(EPNum, RX, EVEN)].bc       = OutEpSize[EPNum];
+        BD[IDX(EPNum, RX, EVEN)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, EVEN)][0]);
+        BD[IDX(EPNum, RX, EVEN)].stat     = BD_OWN_MASK | BD_DTS_MASK;
+        BD[IDX(EPNum, RX, ODD)].stat     = 0;
     }
 }
 
@@ -652,8 +652,8 @@ void USBD_Handler(void)
         /* setup packet                                                               */
         if ((num == 0) && (TOK_PID((IDX(num, dir, ev_odd))) == SETUP_TOKEN)) {
             Data1 &= ~0x02;
-            BD[IDX(0, TX, EVEN)].stat &= ~BD_OWN_MASK;
-            BD[IDX(0, TX, ODD)].stat  &= ~BD_OWN_MASK;
+            BD[IDX(0, TX, ODD)].stat &= ~BD_OWN_MASK;
+            BD[IDX(0, TX, EVEN)].stat  &= ~BD_OWN_MASK;
 #ifdef __RTX
 
             if (USBD_RTX_EPTask[num]) {
