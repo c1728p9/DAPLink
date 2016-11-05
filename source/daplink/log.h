@@ -36,6 +36,7 @@ void log_write_hex16(uint16_t value);
 void log_write_hex32(uint32_t value);
 void log_write_uint32(uint32_t value);
 void log_write_string(const char *data);
+void log_init(void);
 void log_build_filesystem(void);
 
 #ifdef __cplusplus

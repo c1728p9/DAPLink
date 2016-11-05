@@ -28,10 +28,11 @@
 
 static const vfs_filename_t log_file_name = "LOG     TXT";
 static const uint32_t log_buf_size = 1024;
-static uint8_t log_buf[log_buf_size] = {' '};
+static uint8_t log_buf[log_buf_size];
 static uint32_t log_buf_head = 0;
 static cortex_int_state_t log_isr_state;
 static uint32_t log_lock_count = 0;
+static bool init_done = 0;
 
 static uint32_t read_file_log_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
 
@@ -101,9 +102,16 @@ void log_write_string(const char *data)
     }
 }
 
+void log_init()
+{
+    memset(log_buf, ' ', sizeof(log_buf));
+    init_done = 1;
+}
+
 void log_build_filesystem()
 {
     vfs_file_t file_handle;
+    util_assert(init_done);
     file_handle = vfs_create_file(log_file_name, read_file_log_txt, 0, log_buf_size);
     vfs_file_set_attr(file_handle, (vfs_file_attr_bit_t)0); // Remove read only attribute
 }
