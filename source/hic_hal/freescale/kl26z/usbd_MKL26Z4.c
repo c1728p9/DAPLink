@@ -39,7 +39,9 @@ BUF_DESC __align(512) BD[(USBD_EP_NUM + 1) * 2 * 2];
 uint8_t EPBuf[(USBD_EP_NUM + 1) * 2 * 2][64];
 uint8_t OutEpSize[USBD_EP_NUM + 1];
 
-uint32_t Data1  = 0x55555555;
+uint32_t Data1              = 0x55555555;
+uint32_t EvenOddLastXfer    = 0xFFFFFFFF;
+uint8_t SetupBufReady       = 0;
 
 #define BD_OWN_MASK        0x80
 #define BD_DATA01_MASK     0x40
@@ -50,8 +52,10 @@ uint32_t Data1  = 0x55555555;
 
 #define TX    1
 #define RX    0
-#define ODD   0
-#define EVEN  1
+#define EVEN  0
+#define ODD   1
+#define DATAX_BIT(Ep, dir)   (1 << (((Ep & 0x0F) * 2) + (1 * dir)))
+#define EVENODD_BIT(Ep, dir) (1 << (((Ep & 0x0F) * 2) + (1 * dir)))
 #define IDX(Ep, dir, Ev_Odd) ((((Ep & 0x0F) * 4) + (2 * dir) + (1 *  Ev_Odd)))
 
 #define SETUP_TOKEN    0x0D
@@ -172,21 +176,30 @@ void USBD_Reset(void)
     }
 
     /* EP0 control endpoint                                                     */
+    BD[IDX(0, RX, EVEN)].bc       = USBD_MAX_PACKET0;
+    BD[IDX(0, RX, EVEN)].buf_addr = (uint32_t) & (EPBuf[IDX(0, RX, EVEN)][0]);
+    BD[IDX(0, RX, EVEN)].stat     = BD_OWN_MASK | BD_DTS_MASK;
     BD[IDX(0, RX, ODD)].bc       = USBD_MAX_PACKET0;
-    BD[IDX(0, RX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(0, RX, ODD)][0]);
-    BD[IDX(0, RX, ODD)].stat     = BD_OWN_MASK | BD_DTS_MASK | BD_DATA01_MASK;
-    BD[IDX(0, RX, EVEN)].stat     = 0;
-    BD[IDX(0, TX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(0, TX, ODD)][0]);
-    BD[IDX(0, TX, EVEN)].buf_addr = 0;
-    USB0->ENDPOINT[0].ENDPT = USB_ENDPT_EPHSHK_MASK | /* enable ep handshaking  */
-                              USB_ENDPT_EPTXEN_MASK | /* enable TX (IN) tran.   */
-                              USB_ENDPT_EPRXEN_MASK;  /* enable RX (OUT) tran.  */
+    BD[IDX(0, RX, ODD)].buf_addr = (uint32_t) &(EPBuf[IDX(0, RX, ODD)][0]);
+    BD[IDX(0, RX, ODD)].stat     = 0;
+
+    BD[IDX(0, TX, EVEN)].stat = 0;
+    BD[IDX(0, TX, EVEN)].buf_addr = (uint32_t) &(EPBuf[IDX(0, TX, EVEN)][0]);
+    BD[IDX(0, TX, ODD)].stat = 0;
+    BD[IDX(0, TX, ODD)].buf_addr = (uint32_t) &(EPBuf[IDX(0, TX, ODD)][0]);
+
     Data1 = 0x55555555;
-    USB0->CTL    |=  USB_CTL_ODDRST_MASK;
+    EvenOddLastXfer = 0xFFFFFFFF;
+    SetupBufReady = 0;
+    USB0->CTL    |=  USB_CTL_ODDRST_MASK; /* Reset to the even USB buffer       */
+    USB0->CTL    &=  ~USB_CTL_ODDRST_MASK;
     USB0->ISTAT   =  0xFF;                /* clear all interrupt status flags   */
     USB0->ERRSTAT =  0xFF;                /* clear all error flags              */
     USB0->ERREN   =  0xFF;                /* enable error interrupt sources     */
     USB0->ADDR    =  0x00;                /* set default address                */
+    USB0->ENDPOINT[0].ENDPT = USB_ENDPT_EPHSHK_MASK | /* enable ep handshaking  */
+                          USB_ENDPT_EPTXEN_MASK | /* enable TX (IN) tran.   */
+                          USB_ENDPT_EPRXEN_MASK;  /* enable RX (OUT) tran.  */
 }
 
 
@@ -357,17 +370,35 @@ void USBD_DisableEP(uint32_t EPNum)
 
 void USBD_ResetEP(uint32_t EPNum)
 {
+    util_assert(USB0->CTL & USB_CTL_TXSUSPENDTOKENBUSY_MASK);
     if (EPNum & 0x80) {
         EPNum &= 0x0F;
-        protected_or(&Data1, (1 << ((EPNum * 2) + 1)));
-        BD[IDX(EPNum, TX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, TX, ODD)][0]);
-        BD[IDX(EPNum, TX, EVEN)].buf_addr = 0;
+
+        BD[IDX(EPNum, TX, EVEN)].stat &= ~BD_OWN_MASK;
+        BD[IDX(EPNum, TX, EVEN)].buf_addr = (uint32_t) &(EPBuf[IDX(EPNum, TX, EVEN)][0]);
+
+        BD[IDX(EPNum, TX, ODD)].stat &= ~BD_OWN_MASK;
+        BD[IDX(EPNum, TX, ODD)].buf_addr = (uint32_t) &(EPBuf[IDX(EPNum, TX, ODD)][0]);
+
+        // Next transaction will use DATA0
+        protected_and(&Data1, ~DATAX_BIT(EPNum, TX));
     } else {
-        protected_and(&Data1, ~(1 << (EPNum * 2)));
-        BD[IDX(EPNum, RX, ODD)].bc       = OutEpSize[EPNum];
-        BD[IDX(EPNum, RX, ODD)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, ODD)][0]);
-        BD[IDX(EPNum, RX, ODD)].stat     = BD_OWN_MASK | BD_DTS_MASK;
-        BD[IDX(EPNum, RX, EVEN)].stat     = 0;
+        uint8_t cur_ev_odd;
+        uint8_t next_ev_odd;
+
+        next_ev_odd = (EvenOddLastXfer & EVENODD_BIT(EPNum, RX)) ? ODD : EVEN;
+        BD[IDX(EPNum, RX, next_ev_odd)].bc       = OutEpSize[EPNum];
+        BD[IDX(EPNum, RX, next_ev_odd)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, next_ev_odd)][0]);
+        BD[IDX(EPNum, RX, next_ev_odd)].stat     = 0;
+
+        // This transaction uses DATA0
+        cur_ev_odd = (~EvenOddLastXfer & EVENODD_BIT(EPNum, RX)) ? ODD : EVEN;
+        BD[IDX(EPNum, RX, cur_ev_odd)].bc       = OutEpSize[EPNum];
+        BD[IDX(EPNum, RX, cur_ev_odd)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, cur_ev_odd)][0]);
+        BD[IDX(EPNum, RX, cur_ev_odd)].stat     = BD_OWN_MASK | BD_DTS_MASK;
+
+        // Next transaction will use DATA1
+        protected_or(&Data1, DATAX_BIT(EPNum, RX));
     }
 }
 
@@ -425,42 +456,74 @@ void USBD_ClearEPBuf(uint32_t EPNum)
 
 uint32_t USBD_ReadEP(uint32_t EPNum, uint8_t *pData, uint32_t size)
 {
-    uint32_t n, sz, idx, setup = 0;
-    idx = IDX(EPNum, RX, 0);
-    sz  = BD[idx].bc;
+    uint32_t n, sz, idx, idx_next;
+    uint8_t last_ev_odd;
+    uint8_t next_ev_odd;
 
-    if ((EPNum == 0) && (TOK_PID(idx) == SETUP_TOKEN)) {
-        setup = 1;
-    }
+    last_ev_odd = (EvenOddLastXfer & EVENODD_BIT(EPNum, RX)) ? ODD : EVEN;
+    idx = IDX(EPNum, RX, last_ev_odd);
+    util_assert(!(BD[idx].stat & BD_OWN_MASK));
+    sz  = BD[idx].bc;
 
     if (size < sz) {
         util_assert(0);
         sz = size;
     }
 
+    // Read current packet
     for (n = 0; n < sz; n++) {
         pData[n] = EPBuf[idx][n];
     }
 
-    BD[idx].bc = OutEpSize[EPNum];
-
-    if ((Data1 >> (idx / 2) & 1) == ((BD[idx].stat >> 6) & 1)) {
-        if (setup && (pData[6] == 0)) {     /* if no setup data stage,            */
-            protected_and(&Data1, ~1);           /* set DATA0                          */
+    // Extra processing for endpoint 0
+    if (0 == EPNum) {
+        if (TOK_PID(idx) == SETUP_TOKEN) {
+            if (pData[6] == 0) {
+                // No data stage - next packet recieved will be SETUP (DATA0)
+                protected_and(&Data1, ~DATAX_BIT(EPNum, RX));
+            } else  {
+                if (pData[0] & (1 << 7)) {
+                    // Data IN stage - This control transfer has a
+                    // data send with an IN transaction and ends with a zero
+                    // length OUT packet. If a SETUP packet arrives before the
+                    // OUT token has been handled this SETUP packet will
+                    // be dropped. To prevent this setup the second buffer
+                    // in advance so the SETUP (DATA0) packet won't be
+                    // dropped.
+                    BD[idx].bc = OutEpSize[EPNum];
+                    BD[idx].stat  = BD_DTS_MASK;
+                    BD[idx].stat |= BD_OWN_MASK;
+                    SetupBufReady = 1;
+                }
+                protected_or(&Data1, DATAX_BIT(EPNum, RX));
+            }
         } else {
-            protected_xor(&Data1, (1 << (idx / 2)));
+            if (SetupBufReady) {
+                // This is a zero length packet indicating the end
+                // of a control transfer with an IN stage.
+                // Next read has already been setup so there is no
+                // work to do.
+                util_assert(0 == sz);
+                SetupBufReady = 0;
+                return 0;
+            }
         }
     }
 
-    if ((Data1 >> (idx / 2)) & 1) {
-        BD[idx].stat  = BD_DTS_MASK | BD_DATA01_MASK;
-        BD[idx].stat |= BD_OWN_MASK;
+    next_ev_odd = (~EvenOddLastXfer & EVENODD_BIT(EPNum, RX)) ? ODD : EVEN;
+    idx_next = IDX(EPNum, RX, next_ev_odd);
+    
+    // Setup next packet
+    BD[idx_next].bc = OutEpSize[EPNum];
+    if (Data1 & DATAX_BIT(EPNum, RX)) {
+        BD[idx_next].stat  = BD_DTS_MASK | BD_DATA01_MASK;
+        BD[idx_next].stat |= BD_OWN_MASK;
     } else {
-        BD[idx].stat  = BD_DTS_MASK;
-        BD[idx].stat |= BD_OWN_MASK;
+        BD[idx_next].stat  = BD_DTS_MASK;
+        BD[idx_next].stat |= BD_OWN_MASK;
     }
 
-    USB0->CTL &= ~USB_CTL_TXSUSPENDTOKENBUSY_MASK;
+    protected_xor(&Data1, DATAX_BIT(EPNum, RX));
     return (sz);
 }
 
@@ -478,21 +541,25 @@ uint32_t USBD_ReadEP(uint32_t EPNum, uint8_t *pData, uint32_t size)
 uint32_t USBD_WriteEP(uint32_t EPNum, uint8_t *pData, uint32_t cnt)
 {
     uint32_t idx, n;
+    uint8_t cur_ev_odd;
     EPNum &= 0x0F;
-    idx = IDX(EPNum, TX, 0);
+    cur_ev_odd = (~EvenOddLastXfer & EVENODD_BIT(EPNum, TX)) ? ODD : EVEN;
+    idx = IDX(EPNum, TX, cur_ev_odd);
+
+    util_assert(!(BD[idx].stat & BD_OWN_MASK));
     BD[idx].bc = cnt;
 
     for (n = 0; n < cnt; n++) {
         EPBuf[idx][n] = pData[n];
     }
 
-    if ((Data1 >> (idx / 2)) & 1) {
-        BD[idx].stat = BD_OWN_MASK | BD_DTS_MASK;
-    } else {
+    if (Data1 & DATAX_BIT(EPNum, TX)) {
         BD[idx].stat = BD_OWN_MASK | BD_DTS_MASK | BD_DATA01_MASK;
+    } else {
+        BD[idx].stat = BD_OWN_MASK | BD_DTS_MASK;
     }
 
-    protected_xor(&Data1, (1 << (idx / 2)));
+    protected_xor(&Data1, DATAX_BIT(EPNum, TX));
     return (cnt);
 }
 
@@ -535,13 +602,16 @@ void USB0_IRQHandler(void)
 /*
  *  USB Device Service Routine
  */
+
 void USBD_Handler(void)
 {
     uint32_t istr, num, dir, ev_odd, stat;
+    uint8_t setup;
     istr  = USB0->ISTAT;
     stat  = USB0->STAT;
     USB0->ISTAT = istr;
     istr &= USB0->INTEN;
+    setup = 0;
 
     /* reset interrupt                                                            */
     if (istr & USB_ISTAT_USBRST_MASK) {
@@ -640,11 +710,20 @@ void USBD_Handler(void)
         dir    = (stat >> 3) & 0x01;
         ev_odd = (stat >> 2) & 0x01;
 
+        /* set the odd/even bit of the last packet                                    */
+        if (ODD == ev_odd) {
+            protected_or(&EvenOddLastXfer, EVENODD_BIT(num, dir));
+        } else {
+            protected_and(&EvenOddLastXfer, ~EVENODD_BIT(num, dir));
+        }
+
         /* setup packet                                                               */
         if ((num == 0) && (TOK_PID((IDX(num, dir, ev_odd))) == SETUP_TOKEN)) {
-            Data1 &= ~0x02;
-            BD[IDX(0, TX, EVEN)].stat &= ~BD_OWN_MASK;
+            setup = 1;
+            Data1 |= DATAX_BIT(0, TX);
             BD[IDX(0, TX, ODD)].stat  &= ~BD_OWN_MASK;
+            BD[IDX(0, TX, EVEN)].stat &= ~BD_OWN_MASK;
+            SetupBufReady = 0;
 #ifdef __RTX
 
             if (USBD_RTX_EPTask[num]) {
@@ -696,5 +775,8 @@ void USBD_Handler(void)
         }
     }
 
+    if (setup) {
+        USB0->CTL &= ~USB_CTL_TXSUSPENDTOKENBUSY_MASK;
+    }
     NVIC_EnableIRQ(USB0_IRQn);
 }
