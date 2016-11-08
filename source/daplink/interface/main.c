@@ -34,7 +34,6 @@
 #include "target_reset.h"
 #include "swd_host.h"
 #include "info.h"
-#include "vfs_manager.h"
 #include "settings.h"
 #include "daplink.h"
 #include "util.h"
@@ -280,7 +279,6 @@ __task void main_task(void)
     info_init();
     // USB
     usbd_init();
-    vfs_mngr_fs_enable(true);
     usbd_connect(0);
     usb_state = USB_CONNECTING;
     usb_state_count = USB_CONNECT_DELAY;
@@ -326,8 +324,6 @@ __task void main_task(void)
         }
 
         if (flags & FLAGS_MAIN_90MS) {
-            // Update USB busy status
-            vfs_mngr_periodic(90); // FLAGS_MAIN_90MS
 
             // Update USB connect status
             switch (usb_state) {

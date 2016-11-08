@@ -26,7 +26,6 @@
 #include "target_config.h"
 #include "board.h"
 #include "read_uid.h"
-#include "virtual_fs.h"
 #include "util.h"
 #include "crc.h"
 #include "daplink.h"
