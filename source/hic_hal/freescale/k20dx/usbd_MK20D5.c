@@ -383,6 +383,8 @@ void USBD_ResetEP(uint32_t EPNum)
         uint8_t next_ev_odd;
         uint8_t next_next_ev_odd;
 
+        //TODO - this needs to be thought out
+        
         // Next transaction will use DATA0
         protected_and(&Data1, ~(1 << (EPNum * 2)));
 
@@ -391,15 +393,15 @@ void USBD_ResetEP(uint32_t EPNum)
         next_ev_odd = (ODD == cur_ev_odd) ? EVEN : ODD;
         next_next_ev_odd = (ODD == next_ev_odd) ? EVEN : ODD;
 
-        util_assert(!BD[IDX(EPNum, RX, next_next_ev_odd)].stat & BD_OWN_MASK);
-        BD[IDX(EPNum, RX, next_next_ev_odd)].bc       = OutEpSize[EPNum];
-        BD[IDX(EPNum, RX, next_next_ev_odd)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, ODD)][0]);
-        BD[IDX(EPNum, RX, next_next_ev_odd)].stat     = 0;//BD_OWN_MASK | BD_DTS_MASK | BD_DATA01_MASK;
+        util_assert(!BD[IDX(EPNum, RX, next_ev_odd)].stat & BD_OWN_MASK);
+        BD[IDX(EPNum, RX, next_ev_odd)].bc       = OutEpSize[EPNum];
+        BD[IDX(EPNum, RX, next_ev_odd)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, next_ev_odd)][0]);
+        BD[IDX(EPNum, RX, next_ev_odd)].stat     = 0;//BD_OWN_MASK | BD_DTS_MASK | BD_DATA01_MASK;
 
         util_assert(!BD[IDX(EPNum, RX, next_next_ev_odd)].stat & BD_OWN_MASK);
-        BD[IDX(EPNum, RX, next_ev_odd)].bc       = OutEpSize[EPNum];
-        BD[IDX(EPNum, RX, next_ev_odd)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, EVEN)][0]);
-        BD[IDX(EPNum, RX, next_ev_odd)].stat     = BD_OWN_MASK | BD_DTS_MASK;
+        BD[IDX(EPNum, RX, cur_ev_odd)].bc       = OutEpSize[EPNum];
+        BD[IDX(EPNum, RX, cur_ev_odd)].buf_addr = (uint32_t) & (EPBuf[IDX(EPNum, RX, cur_ev_odd)][0]);
+        BD[IDX(EPNum, RX, cur_ev_odd)].stat     = BD_OWN_MASK | BD_DTS_MASK;
     }
     //EvenOdd
     //protected_or(&odd_even_rx, (1 << (EPNum & 0x80)));
@@ -494,6 +496,9 @@ uint32_t USBD_ReadEP(uint32_t EPNum, uint8_t *pData, uint32_t size)
             BD[idx].stat  = BD_DTS_MASK;//TODO - see if this even needs to be data0
             BD[idx].stat |= BD_OWN_MASK;
             ep0_rx_set = 1;
+            //protected_xor(&Data1, DATAX_BIT(EPNum, RX));
+            protected_or(&Data1, DATAX_BIT(EPNum, RX));//TODO - look into
+        } else {
             protected_xor(&Data1, DATAX_BIT(EPNum, RX));
         }
     } else {
@@ -503,13 +508,17 @@ uint32_t USBD_ReadEP(uint32_t EPNum, uint8_t *pData, uint32_t size)
             util_assert(0 == sz);
             ep0_rx_set = 0;
             return 0;
+        } else if (0 == EPNum) {
+            static volatile int inc_val = 0;
+            inc_val++;
+        } else {
+            static volatile int inc_val2 = 0;
+            inc_val2++;
         }
         protected_xor(&Data1, DATAX_BIT(EPNum, RX));
     }
-    //protected_xor(&EvenOdd, EVENODD_BIT(EPNum, RX));
     next_ev_odd = (~EvenOdd & EVENODD_BIT(EPNum, RX)) ? ODD : EVEN;
     idx_next = IDX(EPNum, RX, next_ev_odd);
-    //TODO - Setup second read for control endpoints with a DATA OUT stage
     
     // Setup next packet
     BD[idx_next].bc = OutEpSize[EPNum];
@@ -716,8 +725,8 @@ void USBD_Handler(void)
         dir    = (stat >> 3) & 0x01;
         ev_odd = (stat >> 2) & 0x01;
 
-        if (dir == RX) {
-            if (ODD) {
+        if (RX == dir) {
+            if (ODD == ev_odd) {
                 protected_or(&EvenOdd, EVENODD_BIT(num, dir));
             } else {
                 protected_and(&EvenOdd, ~EVENODD_BIT(num, dir));
