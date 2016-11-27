@@ -47,6 +47,7 @@ def _daplink_from_serial_number(serial_number):
 
 def _platform_supports_usb_test():
     """Return True if this platform supports USB testing, False otherwise"""
+    return True
     if os.name != "posix":
         return False
     if os.uname()[0] == "Darwin":
@@ -147,3 +148,17 @@ def test_usb(workspace, parent_test):
     cdc._ep_data_out.write('')      # DATA 0
 
     cdc.unlock()
+
+
+import test_info
+class Dummy(object):
+    pass
+
+def get_unique_id():
+    return "0240000034544e45003a00048e3800525a91000097969900"
+
+d = Dummy()
+d.board = Dummy()
+d.board.get_unique_id = get_unique_id
+test_usb(d, test_info.TestInfoStub())
+
