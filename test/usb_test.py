@@ -18,9 +18,114 @@
 
 import os
 import usb.core
+import functools
+import test_info
 from usb_cdc import USBCdc
 from usb_hid import USBHid
 from usb_msd import USBMsd
+
+
+def test_usb(workspace, parent_test, force=False):
+    """Run raw USB tests
+
+    Requirements:
+        -daplink-validation must be loaded for the target.
+    """
+    if not _platform_supports_usb_test() and not force:
+        parent_test.info("Skipping USB test on this platform")
+        return
+
+    # Find the device under test
+    test_info = parent_test.create_subtest("USB test")
+    serial_number = workspace.board.get_unique_id()
+    dev = _daplink_from_serial_number(serial_number)
+    if dev is None:
+        test_info.failure("Could not find board with serial number %s" %
+                          serial_number)
+        return
+
+    # Acquire exclusive access to interfaces
+    cdc = USBCdc(dev)
+    hid = USBHid(dev)
+    msd = USBMsd(dev)
+    cdc.lock()
+    hid.lock()
+    msd.lock()
+
+    _set_usb_test_mode(hid, True)
+
+    # Test CDC
+    cdc.set_line_coding(115200)
+    baud, fmt, parity, databits = cdc.get_line_coding()
+    print("Baud %i, fmt %i, parity %i, databits %i" %
+          (baud, fmt, parity, databits))
+    cdc.send_break(cdc.SEND_BREAK_ON)
+    cdc.send_break(cdc.SEND_BREAK_OFF)
+    data = cdc.read(1024)
+    print("Serial port data: %s" % bytearray(data))
+    cdc.write("Hello world")
+    data = cdc.read(1024)
+    print("Serial port data2: %s" % bytearray(data))
+
+    # Test HID
+    hid.set_idle()
+    #TODO - descriptors should probably be enumerated
+    report = hid.get_descriptor(hid.DESC_TYPE_REPORT, 0)
+    print("Report descriptor: %s" % report)
+    # Send CMSIS-DAP vendor command to get the serial number
+    data = bytearray(64)
+    data[0] = 0x80
+    hid.set_report(data)
+    resp = hid.get_report(64)
+    length = resp[1]
+    print("CMSIS-DAP response: %s" %
+          bytearray(resp[1:1 + length]).decode("utf-8"))
+
+    # Test MSC
+    data = msd.scsi_read10(0, 1)
+    print("MBR[0:16]: %s" % data[0:16])
+
+    # Test various patterns of control transfers
+    #
+    # Some devices have had problems with back-to-back
+    # control transfers. Intentionally send these sequences
+    # to make sure they are properly handled.
+    for _ in range(100):
+        # Control transfer with a data in stage
+        cdc.get_line_coding()
+    for _ in range(100):
+        # Control transfer with a data out stage followed
+        # by a control transfer with a data in stage
+        cdc.set_line_coding(115200)
+        cdc.get_line_coding()
+    for _ in range(100):
+        # Control transfer with a data out stage
+        cdc.set_line_coding(115200)
+
+    cdc.ep_data_out.clear_halt()
+    cdc.ep_data_out.write('')      # DATA0
+    cdc.ep_data_out.clear_halt()
+    cdc.ep_data_out.write('')      # DATA0
+
+    cdc.ep_data_out.clear_halt()
+    cdc.ep_data_out.write('')      # DATA 0
+    cdc.ep_data_out.write('')      # DATA 1
+    cdc.ep_data_out.clear_halt()
+    cdc.ep_data_out.write('')      # DATA 0
+
+    data = bytearray(64)
+    data[0] = 0x88
+    data[1] = 0
+    hid.set_report(data)
+    resp = hid.get_report(64)
+    if (resp[0] != 0x88) or (resp[1] != 1):
+        print("Error disabling USB test mode")
+
+    _set_usb_test_mode(hid, False)
+
+    cdc.unlock()
+    hid.unlock()
+    msd.unlock()
 
 
 def _daplink_match(dev):
@@ -47,7 +152,6 @@ def _daplink_from_serial_number(serial_number):
 
 def _platform_supports_usb_test():
     """Return True if this platform supports USB testing, False otherwise"""
-    return True
     if os.name != "posix":
         return False
     if os.uname()[0] == "Darwin":
@@ -55,129 +159,36 @@ def _platform_supports_usb_test():
     return True
 
 
-def test_usb(workspace, parent_test):
-    """Run raw USB tests
-
-    Requirements:
-        -daplink-validation must be loaded for the target.
-    """
-    if not _platform_supports_usb_test():
-        parent_test.info("Skipping USB test on this platform")
-        return
-
-    # Find the device under test
-    test_info = parent_test.create_subtest("USB test")
-    serial_number = workspace.board.get_unique_id()
-    dev = _daplink_from_serial_number(serial_number)
-    if dev is None:
-        test_info.failure("Could not find board with serial number %s" %
-                          serial_number)
-        return
-
-    # Test CDC
-    cdc = USBCdc(dev)
-    cdc.lock()
-    cdc.set_line_coding(115200)
-    baud, fmt, parity, databits = cdc.get_line_coding()
-    print("Baud %i, fmt %i, parity %i, databits %i" %
-          (baud, fmt, parity, databits))
-    cdc.send_break(cdc.SEND_BREAK_ON)
-    cdc.send_break(cdc.SEND_BREAK_OFF)
-    data = cdc.read(1024)
-    print("Serial port data: %s" % bytearray(data))
-    cdc.write("Hello world")
-    data = cdc.read(1024)
-    print("Serial port data2: %s" % bytearray(data))
-    cdc.unlock()
-
-    # Test HID
-    hid = USBHid(dev)
-    hid.lock()
-    hid.set_idle()
-    #TODO - descriptors should probably be enumerated
-    report = hid.get_descriptor(hid.DESC_TYPE_REPORT, 0)
-    print("Report descriptor: %s" % report)
-    # Send CMSIS-DAP vendor command to get the serial number
-    data = bytearray(64)
-    data[0] = 0x80
-    hid.set_report(data)
-    resp = hid.get_report(64)
-    length = resp[1]
-    print("CMSIS-DAP response: %s" % bytearray(resp[1:1 + length]).decode("utf-8"))
-    hid.unlock()
-
-    hid.lock()
+def _set_usb_test_mode(hid, enabled):
     data = bytearray(64)
     data[0] = 0x88
-    data[1] = 1
+    data[1] = 1 if enabled else 0
     hid.set_report(data)
     resp = hid.get_report(64)
     if (resp[0] != 0x88) or (resp[1] != 1):
         print("Error configuring USB test mode")
-    hid.unlock()
 
-    # Test MSC
-    msd = USBMsd(dev)
-    msd.lock()
-    data = msd.scsi_read10(0, 1)
-    print("MBR[0:16]: %s" % data[0:16])
-    msd.unlock()
 
-    # Test various patterns of control transfers
-    #
-    # Some devices have had problems with back-to-back
-    # control transfers. Intentionally send these sequences
-    # to make sure they are properly handled.
-    cdc.lock()
-    for _ in range(100):
-        # Control transfer with a data in stage
-        cdc.get_line_coding()
+def main():
 
-    for _ in range(100):
-        # Control transfer with a data out stage followed
-        # by a control transfer with a data in stage
-        cdc.set_line_coding(115200)
-        cdc.get_line_coding()
+    class Dummy(object):
+        pass
 
-    for _ in range(100):
-        # Control transfer with a data out stage
-        cdc.set_line_coding(115200)
-    cdc.unlock()
+    def get_unique_id(unique_id):
+        return unique_id
 
-    cdc.lock()
+    dev_list = usb.core.find(find_all=True, custom_match=_daplink_match)
+    for dev in dev_list:
+        board_id = dev.serial_number
+        print("Testing board %s" % board_id)
+        print("----------------")
+        d = Dummy()
+        d.board = Dummy()
+        d.board.unique_id = dev.serial_number
+        d.board.get_unique_id = functools.partial(get_unique_id,
+                                                  board_id)
+        test_usb(d, test_info.TestInfoStub(), True)
 
-    cdc._ep_data_out.clear_halt()
-    cdc._ep_data_out.write('')      # DATA0
-    cdc._ep_data_out.clear_halt()
-    cdc._ep_data_out.write('')      # DATA0
 
-    cdc._ep_data_out.clear_halt()
-    cdc._ep_data_out.write('')      # DATA 0
-    cdc._ep_data_out.write('')      # DATA 1
-    cdc._ep_data_out.clear_halt()
-    cdc._ep_data_out.write('')      # DATA 0
-
-    cdc.unlock()
-
-    hid.lock()
-    data = bytearray(64)
-    data[0] = 0x88
-    data[1] = 0
-    hid.set_report(data)
-    resp = hid.get_report(64)
-    if (resp[0] != 0x88) or (resp[1] != 1):
-        print("Error disabling USB test mode")
-    hid.unlock()
-
-import test_info
-class Dummy(object):
-    pass
-
-def get_unique_id():
-    return "9900000031864e45001a100b0000002a0000000097969901"
-
-d = Dummy()
-d.board = Dummy()
-d.board.get_unique_id = get_unique_id
-test_usb(d, test_info.TestInfoStub())
-
+if __name__ == "__main__":
+    main()
