@@ -1,5 +1,5 @@
 /**
- * @file    gpio.h
+ * @file    usbd_MKL26Z4.h
  * @brief   
  *
  * DAPLink Interface Firmware
@@ -150,7 +150,6 @@ void USBD_Connect(uint32_t con)
     if (con) {
         USB0->CTL  |= USB_CTL_USBENSOFEN_MASK;            /* enable USB           */
         USB0->CONTROL = USB_CONTROL_DPPULLUPNONOTG_MASK;  /* pull up on D+        */
-
     } else {
         USB0->CTL  &= ~USB_CTL_USBENSOFEN_MASK;           /* disable USB          */
         USB0->CONTROL &= ~USB_CONTROL_DPPULLUPNONOTG_MASK;/* pull down on D+      */

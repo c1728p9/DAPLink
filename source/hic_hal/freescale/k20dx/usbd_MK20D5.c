@@ -87,9 +87,9 @@ inline static void protected_xor(uint32_t *addr, uint32_t val)
  *    Return Value:    None
  */
 
-void          USBD_IntrEna(void)
+void USBD_IntrEna(void)
 {
-    NVIC_EnableIRQ(USB0_IRQn);            /* Enable OTG interrupt */
+    NVIC_EnableIRQ(USB0_IRQn);            /* Enable OTG interrupt               */
 }
 
 
@@ -106,10 +106,12 @@ void USBD_Init(void)
     /* Set USB clock to 48 MHz                                                  */
     SIM->SOPT2   |=   SIM_SOPT2_USBSRC_MASK     | /* MCGPLLCLK used as src      */
                       SIM_SOPT2_PLLFLLSEL_MASK  ; /* Select MCGPLLCLK as clock  */
+#if defined(TARGET_MK20D5)
     SIM->CLKDIV2 &= ~(SIM_CLKDIV2_USBFRAC_MASK  | /* Clear CLKDIV2 FS values    */
                       SIM_CLKDIV2_USBDIV_MASK);
     SIM->CLKDIV2  =   SIM_CLKDIV2_USBDIV(0)     ; /* USB clk = (PLL*1/2)        */
     /*         = ( 48*1/1)=48     */
+#endif // TARGET_MK20D5
     SIM->SCGC4   |=   SIM_SCGC4_USBOTG_MASK;      /* Enable USBOTG clock        */
     USBD_IntrEna();
     USB0->USBTRC0 |= USB_USBTRC0_USBRESET_MASK;
