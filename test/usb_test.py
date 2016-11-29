@@ -106,6 +106,16 @@ def test_usb(workspace, parent_test):
     print("CMSIS-DAP response: %s" % bytearray(resp[1:1 + length]).decode("utf-8"))
     hid.unlock()
 
+    hid.lock()
+    data = bytearray(64)
+    data[0] = 0x88
+    data[1] = 1
+    hid.set_report(data)
+    resp = hid.get_report(64)
+    if (resp[0] != 0x88) or (resp[1] != 1):
+        print("Error configuring USB test mode")
+    hid.unlock()
+
     # Test MSC
     msd = USBMsd(dev)
     msd.lock()
@@ -149,13 +159,22 @@ def test_usb(workspace, parent_test):
 
     cdc.unlock()
 
+    hid.lock()
+    data = bytearray(64)
+    data[0] = 0x88
+    data[1] = 0
+    hid.set_report(data)
+    resp = hid.get_report(64)
+    if (resp[0] != 0x88) or (resp[1] != 1):
+        print("Error disabling USB test mode")
+    hid.unlock()
 
 import test_info
 class Dummy(object):
     pass
 
 def get_unique_id():
-    return "0240000034544e45003a00048e3800525a91000097969900"
+    return "9900000031864e45001a100b0000002a0000000097969901"
 
 d = Dummy()
 d.board = Dummy()
