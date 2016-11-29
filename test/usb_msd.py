@@ -66,8 +66,8 @@ class USBMsd(object):
     def __init__(self, device):
         self._dev = device
         self._if = None
-        self._ep_in = None
-        self._ep_out = None
+        self.ep_in = None
+        self.ep_out = None
         self._locked = False
         self._cbw_tag = 0
 
@@ -81,13 +81,13 @@ class USBMsd(object):
         # Find endpoints
         for endpoint in self._if:
             if endpoint.bEndpointAddress & 0x80:
-                assert self._ep_in is None
-                self._ep_in = endpoint
+                assert self.ep_in is None
+                self.ep_in = endpoint
             else:
-                assert self._ep_out is None
-                self._ep_out = endpoint
-        assert self._ep_in is not None
-        assert self._ep_out is not None
+                assert self.ep_out is None
+                self.ep_out = endpoint
+        assert self.ep_in is not None
+        assert self.ep_out is not None
 
     def lock(self):
         """Acquire exclisive access to MSD"""
@@ -163,18 +163,18 @@ class USBMsd(object):
         cbw = struct.pack(self.FMT_CBW, *params)
         pad_size = 16 - len(cbwcb)
         payload = cbw + cbwcb + bytearray(pad_size)
-        self._ep_out.write(payload)
+        self.ep_out.write(payload)
 
         # Phase - Data Out or Data In (Optional)
         if transfer_size > 0:
             if in_transfer:
-                data = self._ep_in.read(transfer_size)
+                data = self.ep_in.read(transfer_size)
             else:
                 data = None
-                self._ep_out.write(size_or_data)
+                self.ep_out.write(size_or_data)
 
         # Phase - Status Transport
-        csw = self._ep_in.read(13)
+        csw = self.ep_in.read(13)
         dCSWSignature, dCSWTag, dCSWDataResidue, bCSWStatus = \
             struct.unpack(self.FMT_CSW, csw)
         assert dCSWSignature == 0x53425355

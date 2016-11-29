@@ -50,8 +50,8 @@ class USBCdc(object):
         self._dev = device
         self._if_data = None
         self._if_comm = None
-        self._ep_data_out = None
-        self._ep_data_in = None
+        self.ep_data_out = None
+        self.ep_data_in = None
         self._locked = False
 
         # Find interfaces
@@ -68,13 +68,13 @@ class USBCdc(object):
         # Find endpoints
         for endpoint in self._if_data:
             if endpoint.bEndpointAddress & 0x80:
-                assert self._ep_data_in is None
-                self._ep_data_in = endpoint
+                assert self.ep_data_in is None
+                self.ep_data_in = endpoint
             else:
-                assert self._ep_data_out is None
-                self._ep_data_out = endpoint
-        assert self._ep_data_in is not None
-        assert self._ep_data_out is not None
+                assert self.ep_data_out is None
+                self.ep_data_out = endpoint
+        assert self.ep_data_in is not None
+        assert self.ep_data_out is not None
 
     def lock(self):
         """Acquire exclisive access to CDC"""
@@ -165,10 +165,10 @@ class USBCdc(object):
         """Read from the CDC data endpoint"""
         assert self._locked
 
-        return self._ep_data_in.read(size)
+        return self.ep_data_in.read(size)
 
     def write(self, data):
         """Write to the CDC data endpoint"""
         assert self._locked
 
-        self._ep_data_out.write(data)
+        self.ep_data_out.write(data)

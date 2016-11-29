@@ -37,8 +37,8 @@ class USBHid(object):
     def __init__(self, device):
         self._dev = device
         self._if = None
-        self._ep_in = None
-        self._ep_out = None
+        self.ep_in = None
+        self.ep_out = None
         self._locked = False
 
         # Find interface
@@ -51,12 +51,12 @@ class USBHid(object):
         # Find endpoints
         for endpoint in self._if:
             if endpoint.bEndpointAddress & 0x80:
-                assert self._ep_in is None
-                self._ep_in = endpoint
+                assert self.ep_in is None
+                self.ep_in = endpoint
             else:
-                assert self._ep_out is None
-                self._ep_out = endpoint
-        assert self._ep_in is not None
+                assert self.ep_out is None
+                self.ep_out = endpoint
+        assert self.ep_in is not None
         # Endpoint out can be None
 
     def lock(self):
@@ -133,13 +133,13 @@ class USBHid(object):
         """Send report to the device"""
         assert self._locked
 
-        if self._ep_out is None:
+        if self.ep_out is None:
             self.set_report_req(data)
         else:
-            self._ep_out.write(data)
+            self.ep_out.write(data)
 
     def get_report(self, size):
         """Read report from the device"""
         assert self._locked
 
-        return self._ep_in.read(size)
+        return self.ep_in.read(size)
