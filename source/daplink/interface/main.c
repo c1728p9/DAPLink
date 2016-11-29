@@ -78,6 +78,7 @@ static main_led_state_t msc_led_state = MAIN_LED_FLASH;
 
 // Global state of usb
 main_usb_connect_t usb_state;
+static bool usb_test_mode = false;
 
 static U64 stk_timer_30_task[TIMER_TASK_30_STACK / sizeof(U64)];
 static U64 stk_dap_task[DAP_TASK_STACK / sizeof(U64)];
@@ -164,6 +165,11 @@ void main_hid_send_event(void)
 {
     os_evt_set(FLAGS_MAIN_HID_SEND, main_task_id);
     return;
+}
+
+void main_usb_set_test_mode(bool enabled)
+{
+    usb_test_mode = enabled;
 }
 
 void USBD_SignalHandler()
@@ -310,6 +316,11 @@ __task void main_task(void)
         flags = os_evt_get();
 
         if (flags & FLAGS_MAIN_PROC_USB) {
+            if (usb_test_mode) {
+                // When in USB test mode Insert a delay to
+                // simulate worst-case behavior.
+                os_dly_wait(1);
+            }
             USBD_Handler();
         }
 
