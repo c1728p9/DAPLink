@@ -125,7 +125,7 @@ class USBCdc(object):
         bmRequest = 0x20                            # SET_LINE_CODING
         wValue = 0                                  # Always 0 for this request
         wIndex = self._if_comm.bInterfaceNumber     # Communication interface
-        self._dev.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, data)
+        self._dev.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, data, 1000000)
 
     def get_line_coding(self):
         """Send the GetLineCoding CDC command
@@ -140,7 +140,7 @@ class USBCdc(object):
         wValue = 0                                  # Always 0 for this request
         wIndex = self._if_comm.bInterfaceNumber     # Communication interface
         resp = self._dev.ctrl_transfer(bmRequestType, bmRequest, wValue,
-                                       wIndex, 7)
+                                       wIndex, 7, 100000)
         baud = (((resp[0] & 0xFF) << (8 * 0)) |
                 ((resp[1] & 0xFF) << (8 * 1)) |
                 ((resp[2] & 0xFF) << (8 * 2)) |

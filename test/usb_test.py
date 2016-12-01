@@ -19,6 +19,7 @@
 import os
 import usb.core
 import functools
+import threading
 import test_info
 from usb_cdc import USBCdc
 from usb_hid import USBHid
@@ -52,7 +53,14 @@ def test_usb(workspace, parent_test, force=False):
     hid.lock()
     msd.lock()
 
-    _set_usb_test_mode(hid, True)
+#    cdc.set_line_coding(115200)
+#    while True:
+#        raw_input("Press any key to continue")
+#        cdc.get_line_coding()
+
+    _set_usb_test_mode(hid, False)
+
+    #TODO - TEST 256 BYTE CONTROL IN TANSFER!!!!
 
     # Test CDC
     cdc.set_line_coding(115200)
@@ -113,13 +121,65 @@ def test_usb(workspace, parent_test, force=False):
     cdc.ep_data_out.clear_halt()
     cdc.ep_data_out.write('')      # DATA 0
 
+#    data = bytearray(64)
+#    data[0] = 0x88
+#    data[1] = 0
+#    hid.set_report(data)
+#    resp = hid.get_report(64)
+#    if (resp[0] != 0x88) or (resp[1] != 1):
+#        print("Error disabling USB test mode")
+
+
+#    for _ in range(1):
+    msd_data = 'x' * 512 * 1
+    msd.scsi_write10(100, msd_data)
+
+    def _test_msd():
+        print("msd started")
+        for _ in range(50):
+            #msd.scsi_read10(100, 1000)
+            msd_data = 'x' * 1024 * 1024 # 1 MB
+            msd.scsi_write10(100, msd_data)
+        print("msd end")
+
+    def _test_cdc():
+        print("cdc started")
+        for _ in range(10000):
+            #cdc.set_line_coding(115200)
+            cdc.get_line_coding()
+            #cdc.send_break(cdc.SEND_BREAK_ON)
+            #cdc.send_break(cdc.SEND_BREAK_OFF)
+#            data = cdc.read(1024)
+#            cdc.write("Hello world")
+#            data = cdc.read(1024)
+        print("cdc end")
+
+    thread = threading.Thread(target=_test_msd)
+    thread2 = threading.Thread(target=_test_cdc)
+    thread.start()
+    thread2.start()
+    print("main start")
     data = bytearray(64)
-    data[0] = 0x88
-    data[1] = 0
-    hid.set_report(data)
-    resp = hid.get_report(64)
-    if (resp[0] != 0x88) or (resp[1] != 1):
-        print("Error disabling USB test mode")
+    data[0] = 0x80
+    for _ in range(10000):
+        hid.set_report(data)
+        hid.get_report(64)
+
+#    for _ in range(100):
+#        # Control transfer with a data in stage
+#        cdc.get_line_coding()
+#    for _ in range(100):
+#        # Control transfer with a data out stage followed
+#        # by a control transfer with a data in stage
+#        cdc.set_line_coding(115200)
+#        cdc.get_line_coding()
+#    for _ in range(100):
+#        # Control transfer with a data out stage
+#        cdc.set_line_coding(115200)
+    print("main end")
+
+    thread.join()
+    thread2.join()
 
     _set_usb_test_mode(hid, False)
 
@@ -167,7 +227,8 @@ def _set_usb_test_mode(hid, enabled):
     resp = hid.get_report(64)
     if (resp[0] != 0x88) or (resp[1] != 1):
         print("Error configuring USB test mode")
-
+    else:
+        print("HID returned %s" % resp)
 
 def main():
 
