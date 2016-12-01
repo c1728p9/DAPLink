@@ -134,6 +134,25 @@ class USBMsd(object):
         assert ret == self.CSW_STATUS_PASSED
         return data
 
+    def scsi_write10(self, lba, data):
+        """Send the SCSI write 10 command and return the data read"""
+        block_size = 512
+
+        assert len(data) % block_size == 0
+        block_count = (len(data) + (block_size - 1)) // block_size
+
+        cbwcb = bytearray(10)
+        cbwcb[0] = 0x2A
+        cbwcb[2] = (lba >> (8 * 3)) & 0xFF
+        cbwcb[3] = (lba >> (8 * 2)) & 0xFF
+        cbwcb[4] = (lba >> (8 * 1)) & 0xFF
+        cbwcb[5] = (lba >> (8 * 0)) & 0xFF
+        cbwcb[7] = (block_count >> (8 * 1)) & 0xFF
+        cbwcb[8] = (block_count >> (8 * 0)) & 0xFF
+        ret, data = self._msd_transfer(cbwcb, 0, data)
+        assert ret == self.CSW_STATUS_PASSED
+        return data
+
     def _msd_transfer(self, cbwcb, lun, size_or_data=None):
         """Perform a bulk only transfer"""
         assert self._locked
@@ -168,10 +187,10 @@ class USBMsd(object):
         # Phase - Data Out or Data In (Optional)
         if transfer_size > 0:
             if in_transfer:
-                data = self.ep_in.read(transfer_size)
+                data = self.ep_in.read(transfer_size, 60000)
             else:
                 data = None
-                self.ep_out.write(size_or_data)
+                self.ep_out.write(size_or_data, 60000)
 
         # Phase - Status Transport
         csw = self.ep_in.read(13)
