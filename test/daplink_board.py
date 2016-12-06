@@ -484,6 +484,9 @@ class DaplinkBoard(object):
         start = time.time()
         while os.path.isdir(self.mount_point):
             if elapsed > wait_time:
+                print("Dismount timeout")
+                file_list = os.listdir(self.mount_point)
+                print("File list: %s" % file_list)
                 raise Exception("Dismount timed out")
             time.sleep(0.1)
             elapsed += 0.1
