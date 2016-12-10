@@ -205,6 +205,7 @@ static uint32_t read_file_mbed_htm(uint32_t sector_offset, uint8_t *data, uint32
 }
 
 // File callback to be used with vfs_add_file to return file contents
+extern int remount_count;
 static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors)
 {
     uint32_t pos;
@@ -288,6 +289,11 @@ static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uin
     pos += util_write_string(buf + pos, "Interface CRC: 0x");
     pos += util_write_hex32(buf + pos, info_get_crc_interface());
     pos += util_write_string(buf + pos, "\r\n");
+
+    pos += util_write_string(buf + pos, "Remount count: ");
+    pos += util_write_uint32(buf + pos, remount_count);
+    pos += util_write_string(buf + pos, "\r\n");
+
     return pos;
 }
 

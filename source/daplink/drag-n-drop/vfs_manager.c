@@ -129,6 +129,8 @@ static uint32_t time_usb_idle;
 static OS_MUT sync_mutex;
 static OS_TID sync_thread = 0;
 
+int remount_count = 0;
+
 // Synchronization functions
 static void sync_init(void);
 static void sync_assert_usb_thread(void);
@@ -276,6 +278,7 @@ void vfs_mngr_periodic(uint32_t elapsed_ms)
             break;
 
         case VFS_MNGR_STATE_CONNECTED:
+            remount_count++;
             build_filesystem();
             USBD_MSC_MediaReady = 1;
             break;

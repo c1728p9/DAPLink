@@ -21,6 +21,7 @@ from __future__ import division
 import os
 import time
 import shutil
+import re
 import six
 import info
 import intelhex
@@ -150,6 +151,8 @@ class MassStorageTester(object):
         assert hasattr(self, '_expected_data')
         test_info = self.parent_test.create_subtest(self.test_name)
 
+        remount_count = int(self.board.details_txt['remount_count'])
+
         # Copy mock files before test
         self._mock_file_list = []
         for dir_name in self._mock_dir_list:
@@ -207,7 +210,17 @@ class MassStorageTester(object):
             with open(file_path, 'wb') as file_handle:
                 file_handle.write(file_contents)
 
-        self.board.wait_for_remount(test_info)
+        try:
+            self.board.wait_for_remount(test_info)
+        except Exception as e:
+            self._board.update_board_info()
+
+        remount_count2 = int(self.board.details_txt['remount_count'])
+        print("Remount count: %i" % remount_count2)
+        if remount_count + 1 != remount_count2:
+            print("Remount count was %i" % remount_count2)
+            print("    expected %i" % remount_count)
+            assert False
 
         # Verify the disk is still valid
         self.board.test_fs(test_info)
