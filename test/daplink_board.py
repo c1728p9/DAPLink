@@ -482,7 +482,7 @@ class DaplinkBoard(object):
         test_info = parent_test.create_subtest('wait_for_remount')
         elapsed = 0
         prev_mode = self.get_mode()
-        prev_count = int(self.details_txt['remount_count'])
+        prev_count = int(self.details_txt.get('remount_count', "-2"))
         print("Count before remount %i" % prev_count)
         start = time.time()
         while os.path.isdir(self.mount_point):
@@ -508,7 +508,7 @@ class DaplinkBoard(object):
         test_info.info("mount took %s s" % (stop - start))
 
         curr_mode = self.get_mode()
-        curr_count = int(self.details_txt['remount_count'])
+        curr_count = int(self.details_txt.get('remount_count', "-1"))
         print("Count after remount %i" % curr_count)
         if prev_mode == curr_mode:
             assert curr_count == prev_count + 1
