@@ -210,17 +210,7 @@ class MassStorageTester(object):
             with open(file_path, 'wb') as file_handle:
                 file_handle.write(file_contents)
 
-        try:
-            self.board.wait_for_remount(test_info)
-        except Exception as e:
-            self._board.update_board_info()
-
-        remount_count2 = int(self.board.details_txt['remount_count'])
-        print("Remount count: %i" % remount_count2)
-        if remount_count + 1 != remount_count2:
-            print("Remount count was %i" % remount_count2)
-            print("    expected %i" % remount_count)
-            assert False
+        self.board.wait_for_remount(test_info)
 
         # Verify the disk is still valid
         self.board.test_fs(test_info)

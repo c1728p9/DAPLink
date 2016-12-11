@@ -509,6 +509,7 @@ class DaplinkBoard(object):
 
         curr_mode = self.get_mode()
         curr_count = int(self.details_txt['remount_count'])
+        print("Count after remount %i" % curr_count)
         if prev_mode == curr_mode:
             assert curr_count == prev_count + 1
 
