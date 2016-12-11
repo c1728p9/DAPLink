@@ -481,13 +481,16 @@ class DaplinkBoard(object):
     def wait_for_remount(self, parent_test, wait_time=120):
         test_info = parent_test.create_subtest('wait_for_remount')
         elapsed = 0
+        prev_mode = self.get_mode()
+        prev_count = int(self.details_txt['remount_count'])
+        print("Count before remount %i" % prev_count)
         start = time.time()
         while os.path.isdir(self.mount_point):
             if elapsed > wait_time:
                 print("Dismount timeout")
                 file_list = os.listdir(self.mount_point)
                 print("File list: %s" % file_list)
-                raise Exception("Dismount timed out")
+                break #raise Exception("Dismount timed out")
             time.sleep(0.1)
             elapsed += 0.1
         stop = time.time()
@@ -503,6 +506,11 @@ class DaplinkBoard(object):
             elapsed += 0.1
         stop = time.time()
         test_info.info("mount took %s s" % (stop - start))
+
+        curr_mode = self.get_mode()
+        curr_count = int(self.details_txt['remount_count'])
+        if prev_mode == curr_mode:
+            assert curr_count == prev_count + 1
 
         # If enabled check the filesystem
         if self._check_fs_on_remount:
