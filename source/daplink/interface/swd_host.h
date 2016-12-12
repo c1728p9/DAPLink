@@ -34,8 +34,6 @@
 extern "C" {
 #endif
 
-uint8_t swd_init(void);
-uint8_t swd_off(void);
 uint8_t swd_init_debug(void);
 uint8_t swd_uninit_debug(void);
 uint8_t swd_read_dp(uint8_t adr, uint32_t *val);
@@ -48,6 +46,7 @@ uint8_t swd_flash_syscall_exec(const program_syscall_t *sysCallParam, uint32_t e
 void swd_set_target_reset(uint8_t asserted);
 uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state);
 uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state);
+void swd_invalidate(void);
 
 #ifdef __cplusplus
 }

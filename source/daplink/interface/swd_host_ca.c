@@ -70,9 +70,15 @@ typedef struct {
     uint32_t xpsr;
 } DEBUG_STATE;
 
+typedef enum {
+    SWD_STATE_UNKNOWN,
+    SWD_STATE_ON,
+    SWD_STATE_OFF
+} swd_state_t;
+
 static DAP_STATE dap_state;
 static uint32_t select_state = SELECT_MEM;
-static volatile uint32_t swd_init_debug_flag = 0;
+static swd_state_t swd_state = SWD_STATE_UNKNOWN;
 
 static uint8_t swd_read_core_register(uint32_t n, uint32_t *val);
 static uint8_t swd_write_core_register(uint32_t n, uint32_t val);
@@ -106,17 +112,16 @@ static uint8_t swd_transfer_retry(uint32_t req, uint32_t *data)
 }
 
 
-uint8_t swd_init(void)
+static uint8_t swd_init(void)
 {
-    //TODO - DAP_Setup puts GPIO pins in a hi-z state which can
-    //       cause problems on re-init.  This needs to be investigated
-    //       and fixed.
+    //Note - DAP_Setup puts GPIO pins in a hi-z state so don't call this
+    //       function during an SWD transfer.
     DAP_Setup();
     PORT_SWD_SETUP();
     return 1;
 }
 
-uint8_t swd_off(void)
+static uint8_t swd_off(void)
 {
     PORT_OFF();
     return 1;
@@ -718,10 +723,9 @@ uint8_t swd_init_debug(void)
 {
     uint32_t tmp = 0;
 
-    if (swd_init_debug_flag != 0) {
+    if (SWD_STATE_ON == swd_state) {
         return 1;
     }
-    swd_init_debug_flag = 1;
 
     // init dap state with fake values
     dap_state.select = 0xffffffff;
@@ -769,11 +773,19 @@ uint8_t swd_init_debug(void)
         return 0;
     }
 
+    swd_state = SWD_STATE_ON;
     return 1;
 }
 
 uint8_t swd_uninit_debug(void)
 {
+    if (SWD_STATE_OFF == swd_state) {
+        return 1;
+    }
+
+    swd_off();
+
+    swd_state = SWD_STATE_OFF;
     return 1;
 }
 
@@ -785,7 +797,7 @@ __attribute__((weak)) void swd_set_target_reset(uint8_t asserted)
 uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 {
     uint32_t val;
-    swd_init();
+    swd_init_debug();
 
     switch (state) {
         case RESET_HOLD:
@@ -797,7 +809,7 @@ uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
             os_dly_wait(2);
             swd_set_target_reset(0);
             os_dly_wait(2);
-            swd_off();
+            swd_uninit_debug();
             break;
 
         case RESET_PROGRAM:
@@ -868,7 +880,7 @@ uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
 {
     uint32_t val;
-    swd_init();
+    swd_init_debug();
     switch (state) {
         case RESET_HOLD:
             swd_set_target_reset(1);
@@ -879,7 +891,7 @@ uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
             os_dly_wait(2);
             swd_set_target_reset(0);
             os_dly_wait(2);
-            swd_off();
+            swd_uninit_debug();
             break;
 
         case RESET_PROGRAM:
@@ -949,6 +961,11 @@ uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
     }
 
     return 1;
+}
+
+void swd_invalidate()
+{
+    swd_state = SWD_STATE_UNKNOWN;
 }
 
 #endif

@@ -28,6 +28,7 @@
 #include "DAP_config.h"
 #include "DAP.h"
 #include "util.h"
+#include "swd_host.h"
 
 #include "main.h"
 
@@ -164,6 +165,7 @@ __task void hid_process(void *argv)
     while (1) {
         // Process DAP Command
         os_sem_wait(&proc_sem, 0xFFFF);
+        swd_invalidate();
         DAP_ProcessCommand(USB_Request[proc_idx], temp_buf);
         memcpy(USB_Request[proc_idx], temp_buf, DAP_PACKET_SIZE);
         proc_idx = (proc_idx + 1) % DAP_PACKET_COUNT;
