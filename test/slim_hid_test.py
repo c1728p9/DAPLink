@@ -35,8 +35,8 @@ def test_main(thread_index, device):
         loop_count = 0
         while True:
             if loop_count % 1000 == 0:
-                print("Thread %i loop %i at %s board ID %s" %
-                      (thread_index, loop_count, time.strftime("%H:%M:%S"), board_id))
+                print("Thread %i loop %i at %s - %s board ID %s" %
+                      (thread_index, loop_count, _get_time(), time.strftime("%H:%M:%S"), board_id))
             semaphore.release()
             data = bytearray(64)
             data[0] = 0x80
