@@ -24,11 +24,6 @@
 
 void gpio_set_isp_pin(uint8_t state);
 
-void target_before_init_debug(void)
-{
-    return;
-}
-
 uint8_t target_unlock_sequence(void)
 {
     return 1;

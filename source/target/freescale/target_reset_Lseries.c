@@ -28,11 +28,6 @@
 #define MDM_IDR     0x010000fc     // read-only identification register
 #define MDM_ID      0x001c0020     // L series
 
-void target_before_init_debug(void)
-{
-    swd_set_target_reset(1);
-}
-
 void board_init(void)
 {
 }

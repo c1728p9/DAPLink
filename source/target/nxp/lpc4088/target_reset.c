@@ -49,11 +49,6 @@ void prerun_target_config(void)
     gpio_set_isp_pin(1);
 }
 
-void target_before_init_debug(void)
-{
-    return;
-}
-
 uint8_t target_unlock_sequence(void)
 {
     return 1;

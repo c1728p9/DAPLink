@@ -118,11 +118,6 @@ static void nrf_Emergency_Erase()
 //	//target_flash_program_page(0,(uint8_t *)nrfBlinkyApp,800);
 }
 
-void target_before_init_debug(void)
-{
-    return;
-}
-
 uint8_t target_unlock_sequence(void)
 {
     return 1;

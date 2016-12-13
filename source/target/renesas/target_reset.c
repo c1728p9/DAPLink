@@ -22,11 +22,6 @@
 #include "target_reset.h"
 #include "swd_host.h"
 
-void target_before_init_debug(void)
-{
-    return;
-}
-
 uint8_t target_unlock_sequence(void)
 {
     return 1;

@@ -870,10 +870,6 @@ static uint8_t swd_init_debug(void)
     dap_state.csw = 0xffffffff;
     DAP_Setup();
     PORT_SWD_SETUP();
-    // call a target dependant function
-    // this function can do several stuff before really
-    // initing the debug
-    target_before_init_debug();
 
     if (!JTAG2SWD()) {
         return 0;

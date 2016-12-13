@@ -28,11 +28,6 @@
 #define MDM_IDR     0x010000fc
 #define MDM_ID      0x001c0000 // K64, K22 (K series)
 
-void target_before_init_debug(void)
-{
-    swd_set_target_reset(1);
-}
-
 void prerun_target_config(void)
 {
     // SIM peripheral   0x40047000
