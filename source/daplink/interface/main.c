@@ -255,22 +255,28 @@ void check_and_update_bootloader(void)
         ret = flash_manager_init(flash_intf_iap_protected);
         if (ret != ERROR_SUCCESS) {
             util_assert(0);
-            return;
+            // Trap - only retry if disconnected completely
+            while (1);
         }
         
         ret = flash_manager_data(image_start, (const uint8_t*)image_data, image_size);
         if (ret != ERROR_SUCCESS) {
             flash_manager_uninit();
             util_assert(0);
-            return;
+            // Trap - only retry if disconnected completely
+            while (1);
         }
         
         ret = flash_manager_uninit();
         if (ret != ERROR_SUCCESS) {
             util_assert(0);
-            return;
+            // Trap - only retry if disconnected completely
+            while (1);
         }
     }
+
+    config_ram_set_hold_in_bl(true);
+    NVIC_SystemReset();
 }
 
 extern __task void hid_process(void);
