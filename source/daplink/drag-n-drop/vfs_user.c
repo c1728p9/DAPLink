@@ -62,6 +62,19 @@ static char assert_buf[64 + 1];
 static uint16_t assert_line;
 static assert_source_t assert_source;
 
+extern int remount_count;
+extern uint32_t time_dismount;
+extern uint32_t time_mount;
+extern uint32_t stall_count;
+extern uint32_t sense_count_1;
+extern uint32_t sense_count_2;
+extern uint32_t media_not_ready_count;
+uint32_t copy_stall_count;
+uint32_t copy_sense_count_1;
+uint32_t copy_sense_count_2;
+uint32_t copy_media_not_ready_count;
+
+
 static uint32_t get_file_size(vfs_read_cb_t read_func);
 
 static uint32_t read_file_mbed_htm(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
@@ -78,6 +91,16 @@ void vfs_user_build_filesystem()
 {
     uint32_t file_size;
     vfs_file_t file_handle;
+
+    copy_stall_count = stall_count;
+    copy_sense_count_1 = sense_count_1;
+    copy_sense_count_2 = sense_count_2;
+    copy_media_not_ready_count = media_not_ready_count;
+    stall_count = 0;
+    sense_count_1 = 0;
+    sense_count_2 = 0;
+    media_not_ready_count = 0;
+
     // Setup the filesystem based on target parameters
     vfs_init(daplink_drive_name, disc_size);
     // MBED.HTM
@@ -205,7 +228,6 @@ static uint32_t read_file_mbed_htm(uint32_t sector_offset, uint8_t *data, uint32
 }
 
 // File callback to be used with vfs_add_file to return file contents
-extern int remount_count;
 static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors)
 {
     uint32_t pos;
@@ -290,8 +312,30 @@ static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uin
     pos += util_write_hex32(buf + pos, info_get_crc_interface());
     pos += util_write_string(buf + pos, "\r\n");
 
+    // Remount count
     pos += util_write_string(buf + pos, "Remount count: ");
     pos += util_write_uint32(buf + pos, remount_count);
+    pos += util_write_string(buf + pos, "\r\n");
+
+    // reconnect time
+    pos += util_write_string(buf + pos, "Dismount time: ");
+    pos += util_write_uint32(buf + pos, time_mount - time_dismount);
+    pos += util_write_string(buf + pos, "\r\n");
+
+    pos += util_write_string(buf + pos, "Stall count: ");
+    pos += util_write_uint32(buf + pos, copy_stall_count);
+    pos += util_write_string(buf + pos, "\r\n");
+
+    pos += util_write_string(buf + pos, "sense_count_1: ");
+    pos += util_write_uint32(buf + pos, copy_sense_count_1);
+    pos += util_write_string(buf + pos, "\r\n");
+
+    pos += util_write_string(buf + pos, "sense_count_2: ");
+    pos += util_write_uint32(buf + pos, copy_sense_count_2);
+    pos += util_write_string(buf + pos, "\r\n");
+
+    pos += util_write_string(buf + pos, "media_not_ready: ");
+    pos += util_write_uint32(buf + pos, copy_media_not_ready_count);
     pos += util_write_string(buf + pos, "\r\n");
 
     return pos;

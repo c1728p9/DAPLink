@@ -130,6 +130,8 @@ static OS_MUT sync_mutex;
 static OS_TID sync_thread = 0;
 
 int remount_count = 0;
+uint32_t time_dismount = 0;
+uint32_t time_mount = 0;
 
 // Synchronization functions
 static void sync_init(void);
@@ -254,6 +256,7 @@ void vfs_mngr_periodic(uint32_t elapsed_ms)
             break;
 
         case VFS_MNGR_STATE_CONNECTED:
+            time_dismount = os_time_get() * 10;
 
             // Close ongoing transfer if there is one
             if (file_transfer_state.transfer_state != TRASNFER_FINISHED) {
@@ -278,6 +281,8 @@ void vfs_mngr_periodic(uint32_t elapsed_ms)
             break;
 
         case VFS_MNGR_STATE_CONNECTED:
+
+            time_mount = os_time_get() * 10;
             remount_count++;
             build_filesystem();
             USBD_MSC_MediaReady = 1;

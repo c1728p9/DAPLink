@@ -48,6 +48,10 @@ U32 Length;     /* R/W Length */
 U8 BulkStage;   /* Bulk Stage */
 U32 BulkLen;    /* Bulk In/Out Length */
 
+uint32_t stall_count = 0;
+uint32_t sense_count_1 = 0;
+uint32_t sense_count_2 = 0;
+uint32_t media_not_ready_count = 0;
 
 /* Dummy Weak Functions that need to be provided by user */
 __weak void usbd_msc_init()
@@ -147,7 +151,9 @@ BOOL USBD_MSC_CheckMedia(void)
     USBD_MSC_MediaReadyEx = USBD_MSC_MediaReady;
 
     if (!USBD_MSC_MediaReady) {
+        media_not_ready_count++;
         if (USBD_MSC_CBW.dDataLength) {
+            stall_count++;
             if ((USBD_MSC_CBW.bmFlags & 0x80) != 0) {
                 USBD_MSC_SetStallEP(usbd_msc_ep_bulkin | 0x80);
             } else {
@@ -512,11 +518,13 @@ void USBD_MSC_RequestSense(void)
     USBD_MSC_BulkBuf[ 1] = 0x00;
 
     if ((USBD_MSC_MediaReadyEx ^ USBD_MSC_MediaReady) & USBD_MSC_MediaReady) {  /* If media state changed to ready */
+        sense_count_1++;
         USBD_MSC_BulkBuf[ 2] = 0x06;           /* UNIT ATTENTION */
         USBD_MSC_BulkBuf[12] = 0x28;           /* Additional Sense Code: Not ready to ready transition */
         USBD_MSC_BulkBuf[13] = 0x00;           /* Additional Sense Code Qualifier */
         USBD_MSC_MediaReadyEx = USBD_MSC_MediaReady;
     } else if (!USBD_MSC_MediaReady) {
+        sense_count_2++;
         USBD_MSC_BulkBuf[ 2] = 0x02;           /* NOT READY */
         USBD_MSC_BulkBuf[12] = 0x3A;           /* Additional Sense Code: Medium not present */
         USBD_MSC_BulkBuf[13] = 0x00;           /* Additional Sense Code Qualifier */
