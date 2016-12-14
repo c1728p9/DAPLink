@@ -490,6 +490,9 @@ class DaplinkBoard(object):
                 print("Dismount timeout")
                 file_list = os.listdir(self.mount_point)
                 print("File list: %s" % file_list)
+                with open(self.get_file_path("details.txt"), "rb") as file_handle:
+                    print("Details.txt contents:")
+                    print(file_handle.read())
                 break #raise Exception("Dismount timed out")
             time.sleep(0.1)
             elapsed += 0.1
