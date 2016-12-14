@@ -39,6 +39,9 @@
 #include "daplink.h"
 #include "util.h"
 #include "DAP.h"
+#include "bootloader_image.h"
+#include "flash_manager.h"
+#include "flash_intf.h"
 
 // Event flags for main task
 // Timers events
@@ -241,6 +244,35 @@ __task void serial_process()
     }
 }
 
+void check_and_update_bootloader(void)
+{
+    int same;
+    error_t ret;
+
+    same = memcmp((void*)image_start, image_data, image_size) == 0;
+    if (!same) {
+        flash_manager_set_page_erase(false);
+        ret = flash_manager_init(flash_intf_iap_protected);
+        if (ret != ERROR_SUCCESS) {
+            util_assert(0);
+            return;
+        }
+        
+        ret = flash_manager_data(image_start, (const uint8_t*)image_data, image_size);
+        if (ret != ERROR_SUCCESS) {
+            flash_manager_uninit();
+            util_assert(0);
+            return;
+        }
+        
+        ret = flash_manager_uninit();
+        if (ret != ERROR_SUCCESS) {
+            util_assert(0);
+            return;
+        }
+    }
+}
+
 extern __task void hid_process(void);
 __attribute__((weak)) void prerun_board_config(void) {}
 __attribute__((weak)) void prerun_target_config(void) {}
@@ -249,6 +281,10 @@ __task void main_task(void)
 {
     // State processing
     uint16_t flags = 0;
+    
+    // Update bootloader if it is out of date
+    check_and_update_bootloader();
+    
     // LED
     gpio_led_state_t hid_led_value = GPIO_LED_ON;
     gpio_led_state_t cdc_led_value = GPIO_LED_ON;
