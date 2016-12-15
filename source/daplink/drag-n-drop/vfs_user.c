@@ -322,19 +322,19 @@ static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uin
     pos += util_write_uint32(buf + pos, time_mount - time_dismount);
     pos += util_write_string(buf + pos, "\r\n");
 
-    pos += util_write_string(buf + pos, "Stall count: ");
+    pos += util_write_string(buf + pos, "Stall: ");
     pos += util_write_uint32(buf + pos, copy_stall_count);
     pos += util_write_string(buf + pos, "\r\n");
 
-    pos += util_write_string(buf + pos, "Sense count 1: ");
+    pos += util_write_string(buf + pos, "S1: ");
     pos += util_write_uint32(buf + pos, copy_sense_count_1);
     pos += util_write_string(buf + pos, "\r\n");
 
-    pos += util_write_string(buf + pos, "Sense count 2: ");
+    pos += util_write_string(buf + pos, "S2: ");
     pos += util_write_uint32(buf + pos, copy_sense_count_2);
     pos += util_write_string(buf + pos, "\r\n");
 
-    pos += util_write_string(buf + pos, "Media not ready: ");
+    pos += util_write_string(buf + pos, "MNR: ");
     pos += util_write_uint32(buf + pos, copy_media_not_ready_count);
     pos += util_write_string(buf + pos, "\r\n");
 
