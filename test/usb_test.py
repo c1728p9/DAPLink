@@ -20,6 +20,8 @@ import os
 import usb.core
 import functools
 import threading
+import struct
+import time
 import test_info
 from usb_cdc import USBCdc
 from usb_hid import USBHid
@@ -58,7 +60,7 @@ def test_usb(workspace, parent_test, force=False):
 #        raw_input("Press any key to continue")
 #        cdc.get_line_coding()
 
-    _set_usb_test_mode(hid, False)
+    #_set_usb_test_mode(hid, False)
 
     #TODO - TEST 256 BYTE CONTROL IN TANSFER!!!!
 
@@ -90,8 +92,107 @@ def test_usb(workspace, parent_test, force=False):
           bytearray(resp[1:1 + length]).decode("utf-8"))
 
     # Test MSC
-    data = msd.scsi_read10(0, 1)
-    print("MBR[0:16]: %s" % data[0:16])
+    mbr = msd.scsi_read10(0, 1)
+    print("MBR[0:16]: %s" % mbr[0:16])
+
+    # Read mbr
+        # Sectors per fat
+        # number of fats
+
+
+    info_fmt = "<HBH3xH"
+    info_size = struct.calcsize(info_fmt)
+    raw_info = mbr[14:14 + info_size]
+    rsvd_sec_cnt, num_fats, root_ent_cnt, fat_sz = struct.unpack(info_fmt,
+                                                                 raw_info)
+
+    print("rsvd_sec_cnt: %s" % rsvd_sec_cnt)
+    print("num_fats: %s" % num_fats)
+    print("root_ent_cnt: %s" % root_ent_cnt)
+    print("fat_sz: %s" % fat_sz)
+
+    root_dir_sec = rsvd_sec_cnt + (num_fats * fat_sz)
+    print("Root dir sect: %s" % root_dir_sec)
+    root_dir = msd.scsi_read10(root_dir_sec, 1)
+    root_dir = bytearray(root_dir)
+
+    free_index = None
+    for i in range(16):
+        start = i * 32
+        dir_entry = root_dir[start:start + 32]
+        file_name = dir_entry[:11]
+        if file_name[0] == 0xE5 or file_name[0] == 0:
+            if free_index is None:
+                free_index = i
+        else:
+            file_name_str = str(bytearray(file_name))
+            print("File[%i]: %s" % (i, file_name_str))
+            print(dir_entry)
+
+    dir_fmt = "<11sBxBHHHHHHHI"
+    dir_size = struct.calcsize(dir_fmt)
+    assert dir_size == 32
+    dir_data = bytearray([
+     82, 69, 70, 82, 69, 83, 72, 32, 65, 67, 84,    # "REFRESH ACT"
+     1,                                             # attributes
+     0,                                             # reserved
+     0,                                             # creation_time_ms
+     0, 0,                                          # creation_time
+     118, 72,                                       # creation_date
+     118, 72,                                       # accessed_date
+     0, 0,                                          # first_cluster_high_16
+     220, 131,                                      # modification_time
+     118, 72,                                       # modification_date
+     2, 0,                                          # first_cluster_low_16
+     119, 1, 0, 0                                   # filesize
+     ])
+    start = dir_size * i
+    root_dir[start:start + dir_size] = dir_data
+    root_dir = msd.scsi_write10(root_dir_sec, root_dir)
+
+    time.sleep(0.9)
+
+    for i in range(1000):
+        try:
+            #mbr = msd.scsi_read10(0, 1)
+            #print("%i - successful read")
+            msd_data = 'x' * 512 * 1
+            msd.scsi_write10(100, msd_data)
+            print("%i - successful write" % i)
+        except usb.core.USBError:
+#            print("%i - failed read" % i)
+#            msd.ep_in.clear_halt()
+            print("%i - failed write" % i)
+            msd.ep_out.clear_halt()
+            msd.ep_in.read(13)
+    exit(0)
+
+    # Stall on IN
+
+    # Stall on OUT
+
+
+#    vfs_filename_t filename;
+#    uint8_t attributes;
+#    uint8_t reserved;
+#    uint8_t creation_time_ms;
+#    uint16_t creation_time;
+#    uint16_t creation_date;
+#    uint16_t accessed_date;
+#    uint16_t first_cluster_high_16;
+#    uint16_t modification_time;
+#    uint16_t modification_date;
+#    uint16_t first_cluster_low_16;
+#    uint32_t filesize;
+
+
+    # FirstRootDirSecNum = BPB_ResvdSecCnt + (BPB_NumFATs * BPB_FATSz16)
+
+    #BPB_RsvdSecCnt 14 2
+    #BPB_NumFATs 16 1
+    #BPB_RootEntCnt 17 2
+    #BPB_FATSz16 22 2
+
 
     # Test various patterns of control transfers
     #
@@ -181,7 +282,7 @@ def test_usb(workspace, parent_test, force=False):
     thread.join()
     thread2.join()
 
-    _set_usb_test_mode(hid, False)
+    #_set_usb_test_mode(hid, False)
 
     cdc.unlock()
     hid.unlock()
