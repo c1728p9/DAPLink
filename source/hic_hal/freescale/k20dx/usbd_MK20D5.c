@@ -120,6 +120,34 @@ inline static uint32_t stat_is_empty()
     return empty;
 }
 
+static void reset_all_even_odd()
+{
+    uint32_t ep;
+    BUF_DESC bd_temp;
+
+    for (ep = 0; ep < USBD_EP_NUM; ep++) {
+
+        // Swap if the most recent transfer is EVEN
+        if (~EvenOddLastXfer & EVENODD_BIT(ep, RX)) {
+            bd_temp = BD[IDX(ep, RX, EVEN)];
+            BD[IDX(ep, RX, EVEN)] = BD[IDX(ep, RX, ODD)];
+            BD[IDX(ep, RX, ODD)] = bd_temp;
+        }
+
+        // Swap if the most recent transfer is EVEN
+        if (~EvenOddLastXfer & EVENODD_BIT(ep, TX)) {
+            bd_temp = BD[IDX(ep, TX, EVEN)];
+            BD[IDX(ep, TX, EVEN)] = BD[IDX(ep, TX, ODD)];
+            BD[IDX(ep, TX, ODD)] = bd_temp;
+        }
+    }
+
+    // Reset to the even USB buffer
+    USB0->CTL    |=  USB_CTL_ODDRST_MASK;
+    USB0->CTL    &=  ~USB_CTL_ODDRST_MASK;
+    EvenOddLastXfer = 0xFFFFFFFF;
+}
+
 /*
  *  USB Device Interrupt enable
  *   Called by USBD_Init to enable the USB Interrupt
@@ -661,13 +689,15 @@ void USBD_Handler(void)
 {
     uint32_t istr, num, dir, ev_odd;
     cortex_int_state_t state;
-    uint8_t setup = 0;
+    uint8_t suspended;
 
     // Get ISTAT
     state = cortex_int_get_and_disable();
     istr = LastIstat;
     LastIstat = 0;
     cortex_int_restore(state);
+    
+    suspended = USB0->CTL & USB_CTL_TXSUSPENDTOKENBUSY_MASK;
 
     /* reset interrupt                                                            */
     if (istr & USB_ISTAT_USBRST_MASK) {
@@ -779,7 +809,6 @@ void USBD_Handler(void)
 
             /* setup packet                                                               */
             if ((num == 0) && (TOK_PID((IDX(num, dir, ev_odd))) == SETUP_TOKEN)) {
-                setup = 1;
                 Data1 |= DATAX_BIT(0, TX);
                 BD[IDX(0, TX, ODD)].stat  &= ~BD_OWN_MASK;
                 BD[IDX(0, TX, EVEN)].stat &= ~BD_OWN_MASK;
@@ -834,9 +863,10 @@ void USBD_Handler(void)
                 }
             }
         }
-    }
-
-    if (setup) {
-        USB0->CTL &= ~USB_CTL_TXSUSPENDTOKENBUSY_MASK;
+        
+        if (suspended) {
+            reset_all_even_odd();
+            USB0->CTL &= ~USB_CTL_TXSUSPENDTOKENBUSY_MASK;
+        }
     }
 }
