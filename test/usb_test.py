@@ -64,32 +64,32 @@ def test_usb(workspace, parent_test, force=False):
 
     #TODO - TEST 256 BYTE CONTROL IN TANSFER!!!!
 
-    # Test CDC
-    cdc.set_line_coding(115200)
-    baud, fmt, parity, databits = cdc.get_line_coding()
-    print("Baud %i, fmt %i, parity %i, databits %i" %
-          (baud, fmt, parity, databits))
-    cdc.send_break(cdc.SEND_BREAK_ON)
-    cdc.send_break(cdc.SEND_BREAK_OFF)
-    data = cdc.read(1024)
-    print("Serial port data: %s" % bytearray(data))
-    cdc.write("Hello world")
-    data = cdc.read(1024)
-    print("Serial port data2: %s" % bytearray(data))
+#    # Test CDC
+#    cdc.set_line_coding(115200)
+#    baud, fmt, parity, databits = cdc.get_line_coding()
+#    print("Baud %i, fmt %i, parity %i, databits %i" %
+#          (baud, fmt, parity, databits))
+#    cdc.send_break(cdc.SEND_BREAK_ON)
+#    cdc.send_break(cdc.SEND_BREAK_OFF)
+#    data = cdc.read(1024)
+#    print("Serial port data: %s" % bytearray(data))
+#    cdc.write("Hello world")
+#    data = cdc.read(1024)
+#    print("Serial port data2: %s" % bytearray(data))
 
-    # Test HID
-    hid.set_idle()
-    #TODO - descriptors should probably be enumerated
-    report = hid.get_descriptor(hid.DESC_TYPE_REPORT, 0)
-    print("Report descriptor: %s" % report)
-    # Send CMSIS-DAP vendor command to get the serial number
-    data = bytearray(64)
-    data[0] = 0x80
-    hid.set_report(data)
-    resp = hid.get_report(64)
-    length = resp[1]
-    print("CMSIS-DAP response: %s" %
-          bytearray(resp[1:1 + length]).decode("utf-8"))
+#    # Test HID
+#    hid.set_idle()
+#    #TODO - descriptors should probably be enumerated
+#    report = hid.get_descriptor(hid.DESC_TYPE_REPORT, 0)
+#    print("Report descriptor: %s" % report)
+#    # Send CMSIS-DAP vendor command to get the serial number
+#    data = bytearray(64)
+#    data[0] = 0x80
+#    hid.set_report(data)
+#    resp = hid.get_report(64)
+#    length = resp[1]
+#    print("CMSIS-DAP response: %s" %
+#          bytearray(resp[1:1 + length]).decode("utf-8"))
 
     # Test MSC
     mbr = msd.scsi_read10(0, 1)
@@ -150,7 +150,22 @@ def test_usb(workspace, parent_test, force=False):
     root_dir[start:start + dir_size] = dir_data
     root_dir = msd.scsi_write10(root_dir_sec, root_dir)
 
+    termnate = False
+
+    def test_func():
+        data = bytearray(64)
+        data[0] = 0x80
+        while not termnate:
+            #hid.set_report(data)
+            try:
+                hid.get_report(64)
+            except usb.core.USBError:
+                pass
+
     time.sleep(0.9)
+
+    thread = threading.Thread(target=test_func)
+    thread.start()
 
     for i in range(1000):
         try:
@@ -162,9 +177,10 @@ def test_usb(workspace, parent_test, force=False):
         except usb.core.USBError:
 #            print("%i - failed read" % i)
 #            msd.ep_in.clear_halt()
-            print("%i - failed write" % i)
             msd.ep_out.clear_halt()
             msd.ep_in.read(13)
+            print("%i - failed write" % i)
+    termnate = True
     exit(0)
 
     # Stall on IN
