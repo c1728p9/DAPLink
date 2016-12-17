@@ -129,6 +129,20 @@ class USBHid(object):
         wIndex = self._if.bInterfaceNumber      # HID interface
         self._dev.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, data)
 
+    def get_report_req(self, data_size, report_type=REPORT_TYPE_INPUT,
+                       report_id=0):
+        """Set a report of the given type"""
+        assert self._locked
+        assert report_type & ~0xFF == 0
+        assert report_id & ~0xFF == 0
+
+        bmRequestType = 0xA1
+        bmRequest = 0x01                        # SET_REPORT
+        wValue = ((report_type << 8) |
+                  (report_id << 0))             # Report and duration
+        wIndex = self._if.bInterfaceNumber      # HID interface
+        return self._dev.ctrl_transfer(bmRequestType, bmRequest, wValue, wIndex, data_size)
+
     def set_report(self, data):
         """Send report to the device"""
         assert self._locked
