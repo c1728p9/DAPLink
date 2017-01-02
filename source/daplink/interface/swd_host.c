@@ -789,14 +789,16 @@ uint8_t swd_init_debug(void)
 {
     uint32_t tmp = 0;
 
-    if (SWD_STATE_ON == swd_state) {
-        return 1;
+    if (SWD_STATE_ON != swd_state) {
+        // This call causes swd lines to go high-z and will also release
+        // reset. Only call this if initializing debug for the first time
+        // to prevent glitches.
+        swd_init();
     }
 
     // init dap state with fake values
     dap_state.select = 0xffffffff;
     dap_state.csw = 0xffffffff;
-    swd_init();
     // call a target dependant function
     // this function can do several stuff before really
     // initing the debug
@@ -848,10 +850,6 @@ uint8_t swd_uninit_debug(void)
     // Assume debug is powered up already
     // Clear (CSYSPWRUPREQ | CDBGPWRUPREQ) in DP_CTRL_STAT register
     uint32_t ctrl_stat_read;
-
-    if (SWD_STATE_OFF == swd_state) {
-        return 1;
-    }
 
     if (!swd_write_dp(DP_CTRL_STAT, 0x0)) {
         return 0;
