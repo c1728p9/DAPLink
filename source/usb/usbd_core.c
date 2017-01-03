@@ -416,6 +416,23 @@ static inline BOOL USBD_ReqGetDescriptor(void)
                         break;
                     }
 
+                    // added by russ to send windows descriptor
+                    if (USBD_SetupPacket.wValueL == 0xEE) {
+                        static const uint8_t descriptor[] = {
+                            0x12,
+                            0x03,
+                            0x4D, 0x00, 0x53, 0x00,
+                            0x46, 0x00, 0x54, 0x00,
+                            0x31, 0x00, 0x30, 0x00,
+                            0x30, 0x00,
+                            0x20,
+                            0x00
+                        };
+                        USBD_EP0Data.pData = (uint8_t *)descriptor;
+                        len = ((USB_STRING_DESCRIPTOR *)USBD_EP0Data.pData)->bLength;
+                        break;
+                    }
+
                     for (n = 0; n != USBD_SetupPacket.wValueL; n++) {
                         if (((USB_STRING_DESCRIPTOR *)pD)->bLength != 0) {
                             pD += ((USB_STRING_DESCRIPTOR *)pD)->bLength;
@@ -906,6 +923,36 @@ void USBD_EndPoint0(U32 event)
                     default:
                         goto stall;
                 }
+
+            case REQUEST_VENDOR:
+                if (0x20 == USBD_SetupPacket.bRequest) {
+                    static const uint8_t resp[] = {
+                        0x28, 0x00, 0x00, 0x00, // Descriptor length (40 bytes)
+                        0x00, 0x01,             // Version ('1.0')
+                        0x04, 0x00,             // Compatibility ID - Descriptor index (0x0004)
+                        0x01,                   // Number of sections (1)
+                        0x00, 0x00, 0x00, 0x00, // Reserved
+                        0x00, 0x00, 0x00,
+                        0x00,                   // Interface number - 0
+                        0x01,                   // Reserved
+                        0x57, 0x49, 0x4E, 0x55, // Compatible ID  - "WINUSB\0\0"
+                        0x53, 0x42, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, // Sub-Compatible ID - unused
+                        0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, // Reserved
+                        0x00, 0x00
+                    };
+                    static const uint32_t len = sizeof(resp);
+
+                    USBD_EP0Data.pData = (U8 *)resp;
+                    if (USBD_EP0Data.Count > len) {
+                        USBD_EP0Data.Count = len;
+                    }
+
+                    USBD_DataInStage();
+                    break;
+                }
+                goto stall;
 
 setup_class_ok:                                                          /* request finished successfully */
                 break;  /* end case REQUEST_CLASS */
