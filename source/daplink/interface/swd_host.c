@@ -984,7 +984,7 @@ uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
             os_dly_wait(2);
             swd_set_target_reset(0);
             os_dly_wait(2);
-            swd_uninit_debug();
+            //swd_uninit_debug();
             break;
 
         case RESET_PROGRAM:
