@@ -69,8 +69,9 @@ def test_usb(workspace, parent_test, force=False):
             #test_cdc(test_info, cdc)
 
             #test_hid(test_info, hid)
+        
 
-        test_msd(test_info, msd)
+        test_msd(test_info, msd, hid)
 
             #test_control(test_info, dev, cdc, hid, msd)
 
@@ -143,7 +144,7 @@ def test_hid(test_info, hid):
                    bytearray(resp[1:1 + length]).decode("utf-8"))
 
 
-def test_msd(test_info, msd):
+def test_msd(test_info, msd, hid):
     """MSD endpoint tests"""
 
     # Simple read
@@ -166,25 +167,28 @@ def test_msd(test_info, msd):
     root_dir_data = root_dir.pack()
     msd.scsi_write10(root_dir.sector, root_dir_data)
 
+    _set_usb_test_mode(hid, True)
+
+    time.sleep(0.700)
     try:
         msd_data = 'x' * 1024 * 16  # 16KB
-        msd.scsi_write10(100, msd_data, dly_before=1.0)
+        msd.scsi_write10(100, msd_data)#, dly_before=0.010)
     except usb.core.USBError:
         msd.ep_out.clear_halt()
         msd.ep_in.read(13)
 
-#     test_info.info("Added file to root directory")
-#     start = time.time()
-#     while time.time() - start < DISMOUNT_TIME_S:
-#         try:
-#             mbr = msd.scsi_read10(0, 1)
-#         except usb.core.USBError:
-#             msd.ep_in.clear_halt()
-#             msd.ep_in.read(13)
-#             test_info.info("Dismount detected")
-#             break
-#     else:
-#         test_info.failure("Device failed to dismount")
+    test_info.info("Added file to root directory")
+    start = time.time()
+    while time.time() - start < DISMOUNT_TIME_S:
+        try:
+            mbr = msd.scsi_read10(0, 1)
+        except usb.core.USBError:
+            msd.ep_in.clear_halt()
+            msd.ep_in.read(13)
+            test_info.info("Dismount detected")
+            break
+    else:
+        test_info.failure("Device failed to dismount")
 
     start = time.time()
     while time.time() - start < DISMOUNT_TIME_S:
@@ -197,6 +201,8 @@ def test_msd(test_info, msd):
             msd.ep_in.read(13)
     else:
         test_info.failure("Device failed to mount")
+
+    _set_usb_test_mode(hid, False)
 
     # Test FAT filesystem
     fat = Fat(msd)

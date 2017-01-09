@@ -1054,9 +1054,14 @@ void USBD_MSC_BulkIn(void)
  *    Parameters:      None
  *    Return Value:    None
  */
-
+extern bool usb_test_mode;
 void USBD_MSC_BulkOut(void)
 {
+    if (usb_test_mode) {
+        // When in USB test mode Insert a delay to
+        // simulate worst-case behavior.
+        os_dly_wait(10);
+    }
     switch (BulkStage) {
         case MSC_BS_CBW:
             USBD_MSC_GetCBW();
@@ -1078,7 +1083,13 @@ void USBD_MSC_BulkOut(void)
         case MSC_BS_CSW:
             // Previous transfer must be complete
             // before the next transfer begins
-            util_assert(0);
+        
+        
+        
+        
+            util_assert(USBD_EndPointHalt & (1 << usbd_msc_ep_bulkout));
+        
+            util_assert(!(USBD_EndPointHalt & (1 << usbd_msc_ep_bulkout)));
             break;
 
         case MSC_BS_RESET:
