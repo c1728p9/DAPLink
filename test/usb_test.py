@@ -62,19 +62,19 @@ def test_usb(workspace, parent_test, force=False):
 
     try:
 
-        for usb_test_on in (False, True):
+       # for usb_test_on in (False, True):
 
-            _set_usb_test_mode(hid, usb_test_on)
+            #_set_usb_test_mode(hid, usb_test_on)
 
-            test_cdc(test_info, cdc)
+            #test_cdc(test_info, cdc)
 
-            test_hid(test_info, hid)
+            #test_hid(test_info, hid)
 
-            test_msd(test_info, msd)
+        test_msd(test_info, msd)
 
-            test_control(test_info, dev, cdc, hid, msd)
+            #test_control(test_info, dev, cdc, hid, msd)
 
-            test_all(test_info, cdc, hid, msd)
+            #test_all(test_info, cdc, hid, msd)
 
             # TODO - future enhancements
             #  MSD remount + hid
@@ -158,7 +158,7 @@ def test_msd(test_info, msd):
     root_dir = fat.root_dir
     for entry in root_dir:
         if entry["DIR_Name"][0] != "\0":
-            print(entry)
+            print(str(bytearray(entry["DIR_Name"])))
 
     # Trigger a remount
     dir_idx = root_dir.find_free_entry_index()
@@ -166,18 +166,25 @@ def test_msd(test_info, msd):
     root_dir_data = root_dir.pack()
     msd.scsi_write10(root_dir.sector, root_dir_data)
 
-    test_info.info("Added file to root directory")
-    start = time.time()
-    while time.time() - start < DISMOUNT_TIME_S:
-        try:
-            mbr = msd.scsi_read10(0, 1)
-        except usb.core.USBError:
-            msd.ep_in.clear_halt()
-            msd.ep_in.read(13)
-            test_info.info("Dismount detected")
-            break
-    else:
-        test_info.failure("Device failed to dismount")
+    try:
+        msd_data = 'x' * 1024 * 16  # 16KB
+        msd.scsi_write10(100, msd_data, dly_before=1.0)
+    except usb.core.USBError:
+        msd.ep_out.clear_halt()
+        msd.ep_in.read(13)
+
+#     test_info.info("Added file to root directory")
+#     start = time.time()
+#     while time.time() - start < DISMOUNT_TIME_S:
+#         try:
+#             mbr = msd.scsi_read10(0, 1)
+#         except usb.core.USBError:
+#             msd.ep_in.clear_halt()
+#             msd.ep_in.read(13)
+#             test_info.info("Dismount detected")
+#             break
+#     else:
+#         test_info.failure("Device failed to dismount")
 
     start = time.time()
     while time.time() - start < DISMOUNT_TIME_S:
@@ -190,6 +197,16 @@ def test_msd(test_info, msd):
             msd.ep_in.read(13)
     else:
         test_info.failure("Device failed to mount")
+
+    # Test FAT filesystem
+    fat = Fat(msd)
+
+    # Grab entries in the root directory
+    root_dir = fat.root_dir
+    for entry in root_dir:
+        if entry["DIR_Name"][0] != "\0":
+            print(str(bytearray(entry["DIR_Name"])))
+
 
 
 def test_control(test_info, dev, cdc, hid, msd):

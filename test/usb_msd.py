@@ -18,6 +18,7 @@
 
 import os
 import struct
+import time
 import numbers
 import usb.util
 
@@ -121,7 +122,7 @@ class USBMsd(object):
             pass
         self._locked = False
 
-    def scsi_read10(self, lba, block_count):
+    def scsi_read10(self, lba, block_count, dly_before=None, dly_after=None):
         """Send the SCSI read 10 command and return the data read"""
         block_size = 512
 
@@ -133,11 +134,11 @@ class USBMsd(object):
         cbwcb[5] = (lba >> (8 * 0)) & 0xFF
         cbwcb[7] = (block_count >> (8 * 1)) & 0xFF
         cbwcb[8] = (block_count >> (8 * 0)) & 0xFF
-        ret, data = self._msd_transfer(cbwcb, 0, block_count * block_size)
+        ret, data = self._msd_transfer(cbwcb, 0, block_count * block_size, dly_before, dly_after)
         assert ret == self.CSW_STATUS_PASSED
         return data
 
-    def scsi_write10(self, lba, data):
+    def scsi_write10(self, lba, data, dly_before=None, dly_after=None):
         """Send the SCSI write 10 command and return the data read"""
         block_size = 512
 
@@ -152,11 +153,11 @@ class USBMsd(object):
         cbwcb[5] = (lba >> (8 * 0)) & 0xFF
         cbwcb[7] = (block_count >> (8 * 1)) & 0xFF
         cbwcb[8] = (block_count >> (8 * 0)) & 0xFF
-        ret, data = self._msd_transfer(cbwcb, 0, data)
+        ret, data = self._msd_transfer(cbwcb, 0, data, dly_before, dly_after)
         assert ret == self.CSW_STATUS_PASSED
         return data
 
-    def _msd_transfer(self, cbwcb, lun, size_or_data=None):
+    def _msd_transfer(self, cbwcb, lun, size_or_data=None, dly_before=None, dly_after=None):
         """Perform a bulk only transfer"""
         assert self._locked
         assert 1 <= len(cbwcb) <= 16
@@ -187,6 +188,9 @@ class USBMsd(object):
         payload = cbw + cbwcb + bytearray(pad_size)
         self.ep_out.write(payload)
 
+        if dly_before is not None:
+            time.sleep(dly_before)
+
         # Phase - Data Out or Data In (Optional)
         if transfer_size > 0:
             if in_transfer:
@@ -194,6 +198,9 @@ class USBMsd(object):
             else:
                 data = None
                 self.ep_out.write(size_or_data, self.timeout)
+
+        if dly_after is not None:
+            time.sleep(dly_after)
 
         # Phase - Status Transport
         csw = self.ep_in.read(13, self.timeout)
