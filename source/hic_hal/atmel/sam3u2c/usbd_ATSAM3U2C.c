@@ -445,11 +445,20 @@ void USBD_ClrStallEP(uint32_t EPNum)
 
 uint32_t USBD_ReadEP(uint32_t EPNum, uint8_t *pData, uint32_t size)
 {
-    uint32_t cnt, n, copy_sz;
+    uint32_t cnt, n, copy_sz, eptsta, pending_out, pending_setup;
     uint8_t *pEPFIFO;                                /* Pointer to EP FIFO           */
     EPNum  &= 0x0F;
     pEPFIFO = (uint8_t *)((uint32_t *)UDPHS_EPTFIFO_BASE + (16384 * EPNum));
-    cnt     = (UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTSTA >> 20) & 0x07FF;  /* Get by */
+    eptsta = UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTSTA;
+
+    pending_out = eptsta & (0x1 << 9);
+    pending_setup = eptsta & (0x1 << 12);
+    cnt = (eptsta >> 20) & 0x07FF;  /* Get by */
+    if (pending_out && pending_setup) {
+        util_assert(8 == cnt);
+        cnt = cnt < 8 ? 0 : cnt - 8;
+    }
+
     copy_sz = cnt > size ? size : cnt;
 
     for (n = 0; n < copy_sz; n++) {
@@ -462,8 +471,10 @@ uint32_t USBD_ReadEP(uint32_t EPNum, uint8_t *pData, uint32_t size)
         UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTCLRSTA = (0x1 << 9);   /* Rece OUT Clear   */
     }
 
-    /* RX_Setup must be cleared after Setup packet is read                      */
-    UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTCLRSTA = (0x1 << 12);  /* Rece SETUP Clear */
+    if (pending_setup && !pending_out) {
+        /* RX_Setup must be cleared after Setup packet is read                      */
+        UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTCLRSTA = (0x1 << 12);  /* Rece SETUP Clear */
+    }
     UDPHS->UDPHS_IEN |= (1 << (EPNum + 8));     /* Enable EP int after data read*/
     return (cnt);
 }
@@ -489,9 +500,8 @@ uint32_t USBD_WriteEP(uint32_t EPNum, uint8_t *pData, uint32_t cnt)
         return (cnt);
     }
 
-    if (UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTSTA & (0x1 << 11)) { /* Bank not ready */
-        return (0);
-    }
+    /* Software must ensure the bank is ready (bit is 11 clear) */
+    util_assert(!(UDPHS->UDPHS_EPT[EPNum].UDPHS_EPTSTA & (0x1 << 11)));
 
     pEPFIFO = (uint8_t *)((uint32_t *)UDPHS_EPTFIFO_BASE + (16384 * EPNum));
 
