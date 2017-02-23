@@ -41,11 +41,11 @@ void gpio_init(void)
     // Initially enable clock for GPIOA and initialize LED port as output with LED == off
     //
     PMC->PMC_PCER0 = (1 << 10);  // Enable clock for PIOA
-    PIOA->PIO_PER  = (1 << _BIT_LED_GREEN) | (1 << _BIT_LED_RED) | (1 << _BIT_LED_BLUE) | (1 << _BIT_BOOT_MODE_PIN);  // Pin == GPIO control
-    PIOA->PIO_SODR = (1 << _BIT_LED_GREEN) | (1 << _BIT_LED_RED) | (1 << _BIT_LED_BLUE); // Green LED == off
-    PIOA->PIO_OER  = (1 << _BIT_LED_GREEN) | (1 << _BIT_LED_RED) | (1 << _BIT_LED_BLUE); // Pin == output
-    PIOA->PIO_ODR  = (1 << _BIT_BOOT_MODE_PIN); // Disable output
-    PIOA->PIO_PUER = (1 << _BIT_BOOT_MODE_PIN); // Enable pull-up
+    PIOA->PIO_PER  = (1UL << _BIT_LED_GREEN) | (1UL << _BIT_LED_RED) | (1UL << _BIT_LED_BLUE) | (1UL << _BIT_BOOT_MODE_PIN);  // Pin == GPIO control
+    PIOA->PIO_SODR = (1UL << _BIT_LED_GREEN) | (1UL << _BIT_LED_RED) | (1UL << _BIT_LED_BLUE); // Green LED == off
+    PIOA->PIO_OER  = (1UL << _BIT_LED_GREEN) | (1UL << _BIT_LED_RED) | (1UL << _BIT_LED_BLUE); // Pin == output
+    PIOA->PIO_ODR  = (1UL << _BIT_BOOT_MODE_PIN); // Disable output
+    PIOA->PIO_PUER = (1UL << _BIT_BOOT_MODE_PIN); // Enable pull-up
     Cnt = 1000000;
     do {} while (--Cnt);    // Give pull-up some time to become active
 
@@ -56,26 +56,27 @@ void gpio_init(void)
 void gpio_set_hid_led(gpio_led_state_t state)
 {
     if (GPIO_LED_ON == state) {
-        PIOA->PIO_CODR = (1 << _BIT_LED_GREEN); // Green LED == on
+        PIOA->PIO_CODR = (1UL << _BIT_LED_GREEN); // Green LED == on
     } else {
-        PIOA->PIO_SODR = (1 << _BIT_LED_GREEN); // Green LED == off
+        PIOA->PIO_SODR = (1UL << _BIT_LED_GREEN); // Green LED == off
     }
 }
 
 void gpio_set_cdc_led(gpio_led_state_t state)
+{
   if (GPIO_LED_ON == state) {
-    PIOA->PIO_CODR = (1 << _BIT_LED_BLUE); //  LED == on
+    PIOA->PIO_CODR = (1UL << _BIT_LED_BLUE); //  LED == on
   } else {
-    PIOA->PIO_SODR = (1 << _BIT_LED_BLUE); //  LED == off
+    PIOA->PIO_SODR = (1UL << _BIT_LED_BLUE); //  LED == off
   }
 }
 
 void gpio_set_msc_led(gpio_led_state_t state)
 {
     if (GPIO_LED_ON == state) {
-    PIOA->PIO_CODR = (1 << _BIT_LED_RED); //  LED == on
+    PIOA->PIO_CODR = (1UL << _BIT_LED_RED); //  LED == on
     } else {
-    PIOA->PIO_SODR = (1 << _BIT_LED_RED); //  LED == off
+    PIOA->PIO_SODR = (1UL << _BIT_LED_RED); //  LED == off
     }
 }
 

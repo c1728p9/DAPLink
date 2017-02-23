@@ -20,7 +20,7 @@
 #include "flash_blob.c"
 
 // target information
-const target_cfg_t target_device = {
+target_cfg_t target_device = {
     .sector_size    = 0x800,
     // Assume memory is regions are same size. Flash algo should ignore requests
     //  when variable sized sectors exist
