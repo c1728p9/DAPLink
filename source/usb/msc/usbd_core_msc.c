@@ -70,6 +70,19 @@ __weak BOOL USBD_EndPoint0_Setup_MSC_ReqToIF(void)
                 }
 
                 break;
+
+            case 0xF0:
+                if (USBD_SetupPacket.wLength  == 0)  {              /* Set media ready */
+                    if (USBD_SetupPacket.wValue) {
+                        USBD_MSC_MediaReady = 1;
+                    } else {
+                        USBD_MSC_MediaReady = 0;
+                    }
+                    USBD_StatusInStage();
+                    return (__TRUE);
+                }
+
+                break;
         }
     }
 
