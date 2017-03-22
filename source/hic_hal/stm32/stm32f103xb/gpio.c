@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 #include "RTL.h"
 #include "DAP_config.h"
 #include "gpio.h"

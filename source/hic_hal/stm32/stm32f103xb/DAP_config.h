@@ -22,7 +22,7 @@
 #ifndef __DAP_CONFIG_H__
 #define __DAP_CONFIG_H__
 
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 #include "stdint.h"
 #include "RTL.h"
 #include "IO_Config.h"

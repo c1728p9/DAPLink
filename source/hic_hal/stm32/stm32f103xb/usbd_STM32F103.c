@@ -12,7 +12,7 @@
 #include "RTL.h"
 #include "rl_usb.h"
 #include "usbreg.h"
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 
 #include "DAP_config.h"
 #include "IO_Config.h"

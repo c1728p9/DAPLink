@@ -21,7 +21,7 @@
 
 #include "flash_hal.h"        // FlashOS Structures       //TODO - uncomment
 #include "target_config.h"    // target_device
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 
 /*********************************************************************
 *
@@ -60,21 +60,21 @@ uint32_t EraseChip(void)
     uint32_t flash_addr;
 
     flash_addr = target_device.flash_start;
-    FLASH_Unlock();
+    HAL_FLASH_Unlock();
     while(flash_addr < target_device.flash_end) {
         FLASH_ErasePage(flash_addr);
         flash_addr += 0x400;
     }
-    FLASH_Lock();
+    HAL_FLASH_Lock();
     return (0);  // O.K.
 }
 
 __attribute__((section("ram_func")))
 uint32_t EraseSector(uint32_t adr)
 {
-    FLASH_Unlock();
+    HAL_FLASH_Unlock();
     FLASH_ErasePage(adr);
-    FLASH_Lock();
+    HAL_FLASH_Lock();
     return (0);  // O.K.
 }
 
@@ -86,7 +86,7 @@ uint32_t ProgramPage(uint32_t adr, uint32_t sz, uint32_t *buf)
 
     current_addr = adr;
     len = sz;
-    FLASH_Unlock();
+    HAL_FLASH_Unlock();
     while(len>0) {
         err_code = FLASH_ProgramWord( current_addr, *buf);
         if(err_code != FLASH_COMPLETE)
@@ -95,6 +95,6 @@ uint32_t ProgramPage(uint32_t adr, uint32_t sz, uint32_t *buf)
         current_addr += 4;
         len -= 4;
     }
-    FLASH_Lock();
+    HAL_FLASH_Lock();
     return (0);                                  // Finished without Errors
 }

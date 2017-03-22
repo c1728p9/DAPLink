@@ -21,7 +21,7 @@
 
 #include "string.h"
 
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 #include "uart.h"
 #include "gpio.h"
 

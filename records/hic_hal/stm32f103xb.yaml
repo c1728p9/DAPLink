@@ -5,18 +5,18 @@ common:
         - INTERFACE_STM32F103XB
         - CPU_STM32F103RBT6
         - USE_STDPERIPH_DRIVER
-        - STM32F10X_MD
+        - STM32F103RB
+        - STM32F1
         - DAPLINK_HIC_ID=0x97969904  # DAPLINK_HIC_ID_STM32F103XB
         - BL_TARGET_FLASH
     includes:
         - source/hic_hal/stm32/stm32f103xb
-        - source/hic_hal/stm32/stm32f103xb/STM32F10x_StdPeriph_Driver/inc
+        - source/hic_hal/stm32/stm32f103xb/vendor
     sources:
         hic_hal:
             - source/hic_hal/stm32/stm32f103xb
             - source/hic_hal/stm32/stm32f103xb/armcc
-            - source/hic_hal/stm32/stm32f103xb/STM32F10x_StdPeriph_Driver/inc
-            - source/hic_hal/stm32/stm32f103xb/STM32F10x_StdPeriph_Driver/src
+            - source/hic_hal/stm32/stm32f103xb/vendor
 
 tool_specific:
     uvision:

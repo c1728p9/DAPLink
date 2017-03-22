@@ -128,9 +128,9 @@ typedef enum
   #ifndef __weak
     #define __weak   __attribute__((weak))
   #endif /* __weak */
-  #ifndef __packed
-    #define __packed __attribute__((__packed__))
-  #endif /* __packed */
+//  #ifndef __packed
+//    #define __packed __attribute__((__packed__))
+//  #endif /* __packed */
 #endif /* __GNUC__ */
 
 
