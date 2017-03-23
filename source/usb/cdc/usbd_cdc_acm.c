@@ -37,15 +37,15 @@ int32_t data_send_active;              /*!< Flag active while data is being sent
 int32_t data_send_zlp;                 /*!< Flag active when ZLP needs to be sent */
 int32_t data_to_send_wr;               /*!< Number of bytes written to the send intermediate buffer */
 int32_t data_to_send_rd;               /*!< Number of bytes read from the send intermediate buffer */
-uint8_t *ptr_data_to_send;             /*!< Pointer to the send intermediate buffer to the data to be sent */
-uint8_t *ptr_data_sent;                /*!< Pointer to the send intermediate buffer to the data already sent */
+uint8_t *ptr_data_to_send = USBD_CDC_ACM_SendBuf;             /*!< Pointer to the send intermediate buffer to the data to be sent */
+uint8_t *ptr_data_sent = USBD_CDC_ACM_SendBuf;                /*!< Pointer to the send intermediate buffer to the data already sent */
 
 int32_t data_read_access;              /*!< Flag active while read data (in the receive intermediate buffer) is being accessed */
 int32_t data_receive_int_access;       /*!< Flag active while read data (in the receive intermediate buffer) is being accessed from the IRQ function*/
 int32_t data_received_pending_pckts;   /*!< Number of packets received but not handled (pending) */
 int32_t data_no_space_for_receive;     /*!< Flag active while there is no more space for reception */
-uint8_t *ptr_data_received;            /*!< Pointer to the receive intermediate buffer to the received unread data */
-uint8_t *ptr_data_read;                /*!< Pointer to the receive intermediate buffer to the received read data */
+uint8_t *ptr_data_received = USBD_CDC_ACM_ReceiveBuf;            /*!< Pointer to the receive intermediate buffer to the received unread data */
+uint8_t *ptr_data_read = USBD_CDC_ACM_ReceiveBuf;                /*!< Pointer to the receive intermediate buffer to the received read data */
 
 uint16_t control_line_state;           /*!< Control line state settings bitmap (0. bit - DTR state, 1. bit - RTS state) */
 
