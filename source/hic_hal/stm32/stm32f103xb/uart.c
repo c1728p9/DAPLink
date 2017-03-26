@@ -21,35 +21,32 @@
 
 #include "string.h"
 
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 #include "uart.h"
 #include "gpio.h"
+#include "util.h"
 
 // For usart
 #define CDC_UART                     USART2
-#define CDC_UART_ENABLE()            RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE)
-#define CDC_UART_DISABLE()           RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, DISABLE)
+#define CDC_UART_ENABLE()            __HAL_RCC_USART2_CLK_ENABLE()
+#define CDC_UART_DISABLE()           __HAL_RCC_USART2_CLK_DISABLE()
 #define CDC_UART_IRQn                USART2_IRQn
 #define CDC_UART_IRQn_Handler        USART2_IRQHandler
 
-#define UART_PINS_PORT_ENABLE()      RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA , ENABLE)
-#define UART_PINS_PORT_DISABLE()     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA , DISABLE)
+#define UART_PINS_PORT_ENABLE()      __HAL_RCC_GPIOA_CLK_ENABLE()
+#define UART_PINS_PORT_DISABLE()     __HAL_RCC_GPIOA_CLK_DISABLE()
 
 #define UART_TX_PORT                 GPIOA
-#define UART_TX_PIN                  GPIO_Pin_2
-#define UART_TX_PIN_SOURCE           GPIO_PinSource2
+#define UART_TX_PIN                  GPIO_PIN_2
 
 #define UART_RX_PORT                 GPIOA
-#define UART_RX_PIN                  GPIO_Pin_3
-#define UART_RX_PIN_SOURCE           GPIO_PinSource3
+#define UART_RX_PIN                  GPIO_PIN_3
 
 #define UART_CTS_PORT                GPIOA
-#define UART_CTS_PIN                 GPIO_Pin_0
-#define UART_CTS_PIN_SOURCE          GPIO_PinSource0
+#define UART_CTS_PIN                 GPIO_PIN_0
 
 #define UART_RTS_PORT                GPIOA
-#define UART_RTS_PIN                 GPIO_Pin_1
-#define UART_RTS_PIN_SOURCE          GPIO_PinSource1
+#define UART_RTS_PIN                 GPIO_PIN_1
 
 // Size must be 2^n for using quick wrap around
 #define  BUFFER_SIZE (512)
@@ -110,82 +107,43 @@ int32_t uart_initialize(void)
 
     GPIO_InitTypeDef GPIO_InitStructure;
     USART_InitTypeDef USART_InitStructure;
-    NVIC_InitTypeDef NVIC_InitStructure;
-
-    USART_ITConfig(CDC_UART, USART_IT_RXNE|USART_IT_TXE, DISABLE);
-    clear_buffers();
 
     CDC_UART_ENABLE();
     UART_PINS_PORT_ENABLE();
 
     //TX pin
-    GPIO_InitStructure.GPIO_Pin = UART_TX_PIN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_Init(UART_TX_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = UART_TX_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_AF_PP;
+    HAL_GPIO_Init(UART_TX_PORT, &GPIO_InitStructure);
     //RX pin
-    GPIO_InitStructure.GPIO_Pin = UART_RX_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(UART_RX_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = UART_RX_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(UART_RX_PORT, &GPIO_InitStructure);
     //CTS pin, input
-    GPIO_InitStructure.GPIO_Pin = UART_CTS_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-    GPIO_Init(UART_CTS_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = UART_CTS_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(UART_CTS_PORT, &GPIO_InitStructure);
     //RTS pin, output low
-    GPIO_InitStructure.GPIO_Pin = UART_RTS_PIN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
-    GPIO_ResetBits(UART_RTS_PORT, UART_RTS_PIN);
-    
-    //Only 8 bit support
-    data_bits = USART_WordLength_8b;
-    // parity
-    if(configuration.Parity == UART_PARITY_ODD)
-        parity = USART_Parity_Odd;
-    else if(configuration.Parity == UART_PARITY_EVEN)
-        parity = USART_Parity_Even;
-    else
-        parity = USART_Parity_No;
-    // stop bits
-    if(configuration.StopBits == UART_STOP_BITS_2)
-        stop_bits = USART_StopBits_2;
-    else if(configuration.StopBits == UART_STOP_BITS_1_5)
-        stop_bits = USART_StopBits_1_5;
-    else if(configuration.StopBits == UART_STOP_BITS_1)
-        stop_bits = USART_StopBits_1;
-    else
-        stop_bits = USART_StopBits_1;
-    //
-    USART_InitStructure.USART_BaudRate = configuration.Baudrate;
-    USART_InitStructure.USART_WordLength = data_bits;
-    USART_InitStructure.USART_StopBits = stop_bits;
-    USART_InitStructure.USART_Parity = parity;
-    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-    USART_Init(CDC_UART, &USART_InitStructure);
-    //
-    NVIC_InitStructure.NVIC_IRQChannel = CDC_UART_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority=2;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 3;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-    // Enable RX interrupt
-    USART_ITConfig(CDC_UART, USART_IT_RXNE, ENABLE);
-    // Initially disable TxEmpty Interrupt
-    USART_ITConfig(CDC_UART, USART_IT_TXE, DISABLE);
+    HAL_GPIO_WritePin(UART_RTS_PORT, UART_RTS_PIN, GPIO_PIN_RESET);
+    GPIO_InitStructure.Pin = UART_RTS_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
 
     NVIC_ClearPendingIRQ(CDC_UART_IRQn);
-
-    USART_Cmd(CDC_UART, ENABLE);
+    NVIC_EnableIRQ(CDC_UART_IRQn);
 
     return 1;
 }
 
 int32_t uart_uninitialize(void)
 {
-    USART_Cmd(CDC_UART, DISABLE);
-    USART_ITConfig(CDC_UART, USART_IT_RXNE|USART_IT_TXE, DISABLE);
+    CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
     clear_buffers();
     return 1;
 }
@@ -202,57 +160,67 @@ int32_t uart_set_configuration(UART_Configuration *config)
     uint16_t data_bits;
     uint16_t parity;
     uint16_t stop_bits;
+    
+    UART_HandleTypeDef uart_handle;
+    HAL_StatusTypeDef status;
 
-    USART_InitTypeDef USART_InitStructure;
+    memset(&uart_handle, 0, sizeof(uart_handle));
+    uart_handle.Instance = CDC_UART;
 
-    // Disable uart and tx/rx interrupter
-    USART_Cmd(CDC_UART, DISABLE);
-    USART_ITConfig(CDC_UART, USART_IT_RXNE|USART_IT_TXE, DISABLE);
-
-    clear_buffers();
-    //Only 8 bit support
-    data_bits = USART_WordLength_8b;
-    configuration.DataBits = UART_DATA_BITS_8;
     // parity
     configuration.Parity = config->Parity;
-    if(config->Parity == UART_PARITY_ODD)
-        parity = USART_Parity_Odd;
-    else if(config->Parity == UART_PARITY_EVEN)
-        parity = USART_Parity_Even;
-    else if(config->Parity == UART_PARITY_NONE)
-        parity = USART_Parity_No;
-    else {   //Other not support
-        parity = USART_Parity_No;
+    if(config->Parity == UART_PARITY_ODD) {
+        uart_handle.Init.Parity = HAL_UART_PARITY_ODD;
+    } else if(config->Parity == UART_PARITY_EVEN) {
+        uart_handle.Init.Parity = HAL_UART_PARITY_EVEN;
+    } else if(config->Parity == UART_PARITY_NONE) {
+        uart_handle.Init.Parity = HAL_UART_PARITY_NONE;
+    } else {   //Other not support
+        uart_handle.Init.Parity = HAL_UART_PARITY_NONE;
         configuration.Parity = UART_PARITY_NONE;
     }
+
     // stop bits
     configuration.StopBits = config->StopBits;
-    if(config->StopBits == UART_STOP_BITS_2)
-        stop_bits = USART_StopBits_2;
-    else if(config->StopBits == UART_STOP_BITS_1_5)
-        stop_bits = USART_StopBits_1_5;
-    else if(config->StopBits == UART_STOP_BITS_1)
-        stop_bits = USART_StopBits_1;
-    else {
-        stop_bits = USART_StopBits_1;
+    if(config->StopBits == UART_STOP_BITS_2) {
+        uart_handle.Init.StopBits = UART_STOPBITS_2;
+    } else if(config->StopBits == UART_STOP_BITS_1_5) {
+        uart_handle.Init.StopBits = UART_STOPBITS_2;
+        configuration.StopBits = UART_STOP_BITS_2;
+    } else if(config->StopBits == UART_STOP_BITS_1) {
+        uart_handle.Init.StopBits = UART_STOPBITS_1;
+    } else {
+        uart_handle.Init.StopBits = UART_STOPBITS_1;
         configuration.StopBits = UART_STOP_BITS_1;
     }
-    configuration.Baudrate = config->Baudrate;
-    configuration.FlowControl = UART_FLOW_CONTROL_NONE;
-    //
-    USART_InitStructure.USART_BaudRate = config->Baudrate;
-    USART_InitStructure.USART_WordLength = data_bits;
-    USART_InitStructure.USART_StopBits = stop_bits;
-    USART_InitStructure.USART_Parity = parity;
-    USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-    USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
-    USART_Init(CDC_UART, &USART_InitStructure);
-    // Enable RX interrupt
-    USART_ITConfig(CDC_UART, USART_IT_RXNE, ENABLE);
-    // Initially disable TxEmpty Interrupt
-    USART_ITConfig(CDC_UART, USART_IT_TXE, DISABLE);
 
-    USART_Cmd(CDC_UART, ENABLE);
+    //Only 8 bit support
+    configuration.DataBits = UART_DATA_BITS_8;
+    uart_handle.Init.WordLength = UART_WORDLENGTH_8B;
+
+    // No flow control
+    configuration.FlowControl = UART_FLOW_CONTROL_NONE;
+    uart_handle.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
+    
+    // Specified baudrate
+    configuration.Baudrate = config->Baudrate;
+    uart_handle.Init.BaudRate = config->Baudrate;
+
+    // TX and RX
+    uart_handle.Init.Mode = UART_MODE_TX_RX;
+    
+    // Disable uart and tx/rx interrupt
+    CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+
+    clear_buffers();
+
+    status = HAL_UART_DeInit(&uart_handle);
+    util_assert(HAL_OK == status);
+    status = HAL_UART_Init(&uart_handle);
+    util_assert(HAL_OK == status);
+    (void)status;
+
+    CDC_UART->CR1 |= USART_IT_RXNE;
 
     return 1;
 }
@@ -273,6 +241,7 @@ int32_t uart_write_free(void)
     return write_free(&write_buffer);
 }
 
+//TODO - update code to use atomic queues
 int32_t uart_write_data(uint8_t *data, uint16_t size)
 {
     uint32_t cnt, len;
@@ -292,15 +261,14 @@ int32_t uart_write_data(uint8_t *data, uint16_t size)
     }
 
     if(!tx_in_progress) {
-        // Wait for tx is free
-        //while(USART_GetITStatus(CDC_UART, USART_IT_TXE) == RESET);
-
         tx_in_progress = 1;
-        USART_SendData(CDC_UART, write_buffer.data[write_buffer.tail++]);
-        if(write_buffer.tail >= BUFFER_SIZE)
-            write_buffer.tail = 0;
+        //TODO - remove if unnecissary
+        //USART_SendData(CDC_UART, write_buffer.data[write_buffer.tail++]);
+        //if(write_buffer.tail >= BUFFER_SIZE)
+        //    write_buffer.tail = 0;
+
         // Enale tx interrupt
-        USART_ITConfig(CDC_UART, USART_IT_TXE, ENABLE);
+        CDC_UART->CR1 |= USART_IT_TXE;
     }
 
     return cnt;
@@ -332,15 +300,13 @@ void CDC_UART_IRQn_Handler(void)
 {
     uint8_t  dat;
     uint32_t cnt;
+    uint32_t sr;
 
-    if(USART_GetITStatus(CDC_UART, USART_IT_ERR) != RESET){
-        USART_ClearITPendingBit(CDC_UART, USART_IT_ERR|USART_IT_RXNE|USART_IT_TXE);
-    }
+    sr = CDC_UART->SR;
 
-    if(USART_GetITStatus(CDC_UART, USART_IT_RXNE) != RESET) {
-        USART_ClearITPendingBit(CDC_UART, USART_IT_RXNE);
+    if (sr & USART_SR_RXNE) {
         cnt = write_free(&read_buffer);
-        dat = USART_ReceiveData(CDC_UART);
+        dat = CDC_UART->DR;
         if(cnt) {
             read_buffer.data[read_buffer.head++] = dat;
             if(read_buffer.head >= BUFFER_SIZE)
@@ -351,15 +317,14 @@ void CDC_UART_IRQn_Handler(void)
         }
     }
 
-    if(USART_GetITStatus(CDC_UART, USART_IT_TXE) != RESET) {
-        USART_ClearITPendingBit(CDC_UART, USART_IT_TXE);
+    if (sr & USART_SR_TXE) {
         cnt = read_available(&write_buffer);
         if(cnt == 0) {
-            USART_ITConfig(CDC_UART, USART_IT_TXE, DISABLE);
+            CDC_UART->CR1 &= ~USART_IT_TXE;
             tx_in_progress = 0;
         }
         else {
-            USART_SendData(CDC_UART, write_buffer.data[write_buffer.tail++]);
+            CDC_UART->DR = write_buffer.data[write_buffer.tail++];
             if(write_buffer.tail >= BUFFER_SIZE)
                 write_buffer.tail = 0;
             tx_in_progress = 1;

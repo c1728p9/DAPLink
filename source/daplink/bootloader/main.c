@@ -29,6 +29,7 @@
 #include "info.h"
 #include "target_config.h"
 #include "util.h"
+#include "sdk.h"
 
 __asm void modify_stack_pointer_and_start_app(uint32_t r0_sp, uint32_t r1_pc)
 {
@@ -228,6 +229,8 @@ __task void main_task(void)
 
 int main(void)
 {
+    // initialize vendor sdk
+    sdk_init();
     // init leds and button
     gpio_init();
     // init settings

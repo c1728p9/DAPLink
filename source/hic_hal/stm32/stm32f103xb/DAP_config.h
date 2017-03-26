@@ -22,7 +22,7 @@
 #ifndef __DAP_CONFIG_H__
 #define __DAP_CONFIG_H__
 
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 #include "stdint.h"
 #include "RTL.h"
 #include "IO_Config.h"
@@ -450,7 +450,10 @@ Status LEDs. In detail the operation of Hardware I/O and LED pins are enabled an
 static __inline void DAP_SETUP(void)
 {
     /* Enable port clock */
-    RCC->APB2ENR |= RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOC;
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
     /* Configure I/O pin SWCLK */
     pin_out_init(SWCLK_TCK_PIN_PORT, SWCLK_TCK_PIN_Bit);
     SWCLK_TCK_PIN_PORT->BSRR = SWCLK_TCK_PIN;

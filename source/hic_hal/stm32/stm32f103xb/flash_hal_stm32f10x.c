@@ -19,9 +19,11 @@
  * limitations under the License.
  */
 
-#include "flash_hal.h"        // FlashOS Structures       //TODO - uncomment
+#include "flash_hal.h"        // FlashOS Structures
 #include "target_config.h"    // target_device
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
+#include "util.h"
+#include "string.h"
 
 /*********************************************************************
 *
@@ -36,7 +38,6 @@
 *
 **********************************************************************
 */
-__attribute__((section("ram_func")))
 uint32_t Init(uint32_t adr, uint32_t clk, uint32_t fnc)
 {
     //
@@ -45,7 +46,6 @@ uint32_t Init(uint32_t adr, uint32_t clk, uint32_t fnc)
     return (0);
 }
 
-__attribute__((section("ram_func")))
 uint32_t UnInit(uint32_t fnc)
 {
     //
@@ -54,47 +54,63 @@ uint32_t UnInit(uint32_t fnc)
     return (0);
 }
 
-__attribute__((section("ram_func")))
 uint32_t EraseChip(void)
 {
-    uint32_t flash_addr;
+    FLASH_EraseInitTypeDef erase_init;
+    uint32_t error;
+    uint32_t ret = 0;  // O.K.
 
-    flash_addr = target_device.flash_start;
-    FLASH_Unlock();
-    while(flash_addr < target_device.flash_end) {
-        FLASH_ErasePage(flash_addr);
-        flash_addr += 0x400;
+    HAL_FLASH_Unlock();
+
+    util_assert((target_device.flash_end - target_device.flash_start) %
+                FLASH_PAGE_SIZE == 0);
+    memset(&erase_init, 0, sizeof(erase_init));
+    erase_init.TypeErase = FLASH_TYPEERASE_PAGES;
+    erase_init.PageAddress = target_device.flash_start;
+    erase_init.NbPages = (target_device.flash_end - target_device.flash_start) % FLASH_PAGE_SIZE;
+    if (HAL_FLASHEx_Erase(&erase_init, &error) != HAL_OK) {
+        ret = 1;
     }
-    FLASH_Lock();
-    return (0);  // O.K.
+    
+    HAL_FLASH_Lock();
+    return ret;
 }
 
-__attribute__((section("ram_func")))
 uint32_t EraseSector(uint32_t adr)
 {
-    FLASH_Unlock();
-    FLASH_ErasePage(adr);
-    FLASH_Lock();
-    return (0);  // O.K.
+    FLASH_EraseInitTypeDef erase_init;
+    uint32_t error;
+    uint32_t ret = 0;  // O.K.
+
+    HAL_FLASH_Unlock();
+    
+    memset(&erase_init, 0, sizeof(erase_init));
+    erase_init.TypeErase = FLASH_TYPEERASE_PAGES;
+    erase_init.PageAddress = adr;
+    erase_init.NbPages = 1;
+    if (HAL_FLASHEx_Erase(&erase_init, &error) != HAL_OK) {
+        ret = 1;
+    }
+
+    HAL_FLASH_Lock();
+    return ret;
 }
 
-__attribute__((section("ram_func")))
 uint32_t ProgramPage(uint32_t adr, uint32_t sz, uint32_t *buf)
 {
-    uint32_t err_code;
-    uint32_t current_addr, len;
+    uint32_t i;
+    uint32_t ret = 0;  // O.K.
 
-    current_addr = adr;
-    len = sz;
-    FLASH_Unlock();
-    while(len>0) {
-        err_code = FLASH_ProgramWord( current_addr, *buf);
-        if(err_code != FLASH_COMPLETE)
-            return 1;
-        buf++;
-        current_addr += 4;
-        len -= 4;
+    HAL_FLASH_Unlock();
+
+    util_assert(sz % 4 == 0);
+    for (i = 0; i < sz / 4; i++) {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, adr + i * 4, buf[i]) != HAL_OK) {
+            ret = 1;
+            break;
+        }
     }
-    FLASH_Lock();
-    return (0);                                  // Finished without Errors
+
+    HAL_FLASH_Lock();
+    return ret;
 }

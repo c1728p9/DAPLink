@@ -38,6 +38,7 @@
 #include "daplink.h"
 #include "util.h"
 #include "DAP.h"
+#include "sdk.h"
 
 // Event flags for main task
 // Timers events
@@ -413,5 +414,7 @@ int main(void)
 #if DAPLINK_ROM_BL_SIZE > 0
     SCB->VTOR = SCB_VTOR_TBLOFF_Msk & DAPLINK_ROM_IF_START;
 #endif
+    // initialize vendor sdk
+    sdk_init();
     os_sys_init_user(main_task, MAIN_TASK_PRIORITY, stk_main_task, MAIN_TASK_STACK);
 }

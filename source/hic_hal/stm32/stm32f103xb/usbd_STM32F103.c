@@ -11,8 +11,8 @@
 
 #include "RTL.h"
 #include "rl_usb.h"
+#include "stm32f1xx.h"
 #include "usbreg.h"
-#include "stm32f10x.h"
 
 #include "DAP_config.h"
 #include "IO_Config.h"
@@ -100,8 +100,8 @@ void          USBD_IntrEna (void)
  */
 void USBD_Init (void)
 {
-    /* Select USBCLK source */
-    RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
+    /* Select USBCLK source = PLLVCO / 3 */
+    RCC->CFGR &= ~RCC_CFGR_USBPRE;
     /* Enable USB clock */
     RCC->APB1ENR |= RCC_APB1ENR_USBEN;
 
@@ -497,7 +497,7 @@ void USB_LP_CAN1_RX0_IRQHandler(void)
 
 void USBWakeUp_IRQHandler(void)
 {
-    EXTI_ClearITPendingBit(EXTI_Line18);
+    EXTI->PR = EXTI_PR_PR18;
 }
 
 

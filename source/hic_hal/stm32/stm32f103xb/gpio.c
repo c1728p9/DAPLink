@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 #include "RTL.h"
 #include "DAP_config.h"
 #include "gpio.h"
@@ -41,55 +41,60 @@ void gpio_init(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
     // enable clock to ports
-    RCC->APB2ENR |= RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOC;
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
     // Enable USB connect pin
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
-    GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
+    __HAL_RCC_AFIO_CLK_ENABLE();
+    // Disable JTAG to free pins for other uses
+    // Note - SWD is still enabled
+    __HAL_AFIO_REMAP_SWJ_NOJTAG();
 
     USB_CONNECT_PORT_ENABLE();
     USB_CONNECT_OFF();
-    GPIO_InitStructure.GPIO_Pin = USB_CONNECT_PIN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_Init(USB_CONNECT_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = USB_CONNECT_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(USB_CONNECT_PORT, &GPIO_InitStructure);
     // configure LEDs
-    GPIO_InitStructure.GPIO_Pin = RUNNING_LED_PIN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_Init(RUNNING_LED_PORT, &GPIO_InitStructure);
-    GPIO_ResetBits(RUNNING_LED_PORT, RUNNING_LED_PIN);
+    HAL_GPIO_WritePin(RUNNING_LED_PORT, RUNNING_LED_PIN, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = RUNNING_LED_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(RUNNING_LED_PORT, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = CONNECTED_LED_PIN;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_Init(CONNECTED_LED_PORT, &GPIO_InitStructure);
-    GPIO_ResetBits(CONNECTED_LED_PORT, CONNECTED_LED_PIN);
+    HAL_GPIO_WritePin(CONNECTED_LED_PORT, CONNECTED_LED_PIN, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = CONNECTED_LED_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(CONNECTED_LED_PORT, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = PIN_CDC_LED;
-    GPIO_Init(PIN_CDC_LED_PORT, &GPIO_InitStructure);
-    GPIO_ResetBits(PIN_CDC_LED_PORT, PIN_CDC_LED);
+    HAL_GPIO_WritePin(PIN_CDC_LED_PORT, PIN_CDC_LED, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = PIN_CDC_LED;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(PIN_CDC_LED_PORT, &GPIO_InitStructure);
 
-    GPIO_InitStructure.GPIO_Pin = PIN_MSC_LED;
-    GPIO_Init(PIN_MSC_LED_PORT, &GPIO_InitStructure);
-    GPIO_ResetBits(PIN_MSC_LED_PORT, PIN_MSC_LED);
+    HAL_GPIO_WritePin(PIN_MSC_LED_PORT, PIN_MSC_LED, GPIO_PIN_SET);
+    GPIO_InitStructure.Pin = PIN_MSC_LED;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(PIN_MSC_LED_PORT, &GPIO_InitStructure);
 
     // reset button configured as gpio input_pullup
-    GPIO_InitStructure.GPIO_Pin = nRESET_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
-    GPIO_Init(nRESET_PIN_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = nRESET_PIN;
+    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(nRESET_PIN_PORT, &GPIO_InitStructure);
 
-    // Keep powered off in bootloader mode
-    // to prevent the target from effecting the state
-    // of the reset line / reset button
-    if (!daplink_is_bootloader()) {
-        // configure pin as GPIO
-        // force always on logic 1
-        GPIO_InitStructure.GPIO_Pin = POWER_EN_PIN;
-        GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-        GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-        GPIO_Init(POWER_EN_PIN_PORT, &GPIO_InitStructure);
-        GPIO_SetBits(POWER_EN_PIN_PORT, POWER_EN_PIN);
-    }
+    // Turn on power to the board. When the target is unpowered
+    // it holds the reset line low.
+    HAL_GPIO_WritePin(POWER_EN_PIN_PORT, POWER_EN_PIN, GPIO_PIN_RESET);
+    GPIO_InitStructure.Pin = POWER_EN_PIN;
+    GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
+    HAL_GPIO_Init(POWER_EN_PIN_PORT, &GPIO_InitStructure);
 
     // Let the voltage rails stabilize.  This is especailly important
     // during software resets, since the target's 3.3v rail can take
@@ -102,31 +107,20 @@ void gpio_init(void)
 
 void gpio_set_hid_led(gpio_led_state_t state)
 {
-    if (state) {
-        GPIO_ResetBits(PIN_HID_LED_PORT, PIN_HID_LED); // LED on
-    } else {
-        GPIO_SetBits(PIN_HID_LED_PORT, PIN_HID_LED);   // LED off
-    }
+    // LED is active low
+    HAL_GPIO_WritePin(PIN_HID_LED_PORT, PIN_HID_LED, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
 void gpio_set_cdc_led(gpio_led_state_t state)
 {
-    //gpio_set_hid_led(state);
-    if (state) {
-        GPIO_ResetBits(PIN_CDC_LED_PORT, PIN_CDC_LED); // LED on
-    } else {
-        GPIO_SetBits(PIN_CDC_LED_PORT, PIN_CDC_LED);   // LED off
-    }
+    // LED is active low
+    HAL_GPIO_WritePin(PIN_CDC_LED_PORT, PIN_CDC_LED, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
 void gpio_set_msc_led(gpio_led_state_t state)
 {
-    //gpio_set_hid_led(state);
-    if (state) {
-        GPIO_ResetBits(PIN_MSC_LED_PORT, PIN_MSC_LED); // LED on
-    } else {
-        GPIO_SetBits(PIN_MSC_LED_PORT, PIN_MSC_LED);   // LED off
-    }
+    // LED is active low
+    HAL_GPIO_WritePin(PIN_MSC_LED_PORT, PIN_MSC_LED, state ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
 uint8_t gpio_get_sw_reset(void)
