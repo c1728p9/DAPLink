@@ -28,7 +28,7 @@
 
 //   <o0.0> High-speed
 //     <i> Enable high-speed functionality (if device supports it)
-#define USBD_HS_ENABLE              1
+#define USBD_HS_ENABLE              0
 
 //   <h> Device Settings
 //     <i> These settings affect Device Descriptor
