@@ -97,6 +97,7 @@ SUPPORTED_CONFIGURATIONS = [
     (   0x218,      'k20dx_frdmkl82z_if',                       'k20dx_bl',         None                                    ), # TODO - set target to 'FRDM-KL82Z' when mbed-os supports this
     (   0x311,      'k20dx_frdmk66f_if',                        'k20dx_bl',         None                                    ), # TODO - set target to 'FRDM-K66F' when mbed-os supports this
     (   0x350,      'k20dx_xdot_l151_if',                       'k20dx_bl',         None                                    ), # TODO - set target to 'MTS-xDot-L151CC' when mbed-os supports this
+    (   0x700,      'stm32f103xb_stm32f103rb_if',               'stm32f103xb_bl',   'ST-Nucleo-F103RB'                      ),
     (   0x824,      'lpc11u35_lpc824xpresso_if',                None,               'LPCXpresso824-MAX'                     ),
     (   0x1017,     'lpc11u35_hrm1017_if',                      None,               'mbed-HRM1017'                          ),
     (   0x1018,     'lpc11u35_ssci824_if',                      None,               'Switch-Science-mbed-LPC824'            ),
