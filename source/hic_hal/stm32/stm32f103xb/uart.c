@@ -101,12 +101,7 @@ static int16_t write_free(ring_buf_t *buffer)
 
 int32_t uart_initialize(void)
 {
-    uint16_t data_bits;
-    uint16_t parity;
-    uint16_t stop_bits;
-
     GPIO_InitTypeDef GPIO_InitStructure;
-    USART_InitTypeDef USART_InitStructure;
 
     CDC_UART_ENABLE();
     UART_PINS_PORT_ENABLE();
@@ -157,10 +152,6 @@ int32_t uart_reset(void)
 
 int32_t uart_set_configuration(UART_Configuration *config)
 {
-    uint16_t data_bits;
-    uint16_t parity;
-    uint16_t stop_bits;
-    
     UART_HandleTypeDef uart_handle;
     HAL_StatusTypeDef status;
 
