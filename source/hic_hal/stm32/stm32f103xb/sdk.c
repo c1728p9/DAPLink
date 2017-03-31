@@ -27,6 +27,11 @@
 #include "daplink.h"
 #include "util.h"
 
+TIM_HandleTypeDef timer;
+uint32_t time_count;
+
+static uint32_t tim2_clk_div(uint32_t apb1clkdiv);
+
 /**
     * @brief  Switch the PLL source from HSI to HSE bypass, and select the PLL as SYSCLK
   *         source.
@@ -85,31 +90,83 @@ void sdk_init()
 
 HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 {
-  return HAL_OK;
+    HAL_StatusTypeDef ret;
+    RCC_ClkInitTypeDef clk_init;
+    uint32_t unused;
+    uint32_t prescaler;
+    uint32_t source_clock;
+
+    HAL_RCC_GetClockConfig(&clk_init, &unused);
+
+    /* Compute the prescaler value to have TIMx counter clock equal to 1000 Hz */
+    source_clock = SystemCoreClock / tim2_clk_div(clk_init.APB1CLKDivider);
+    prescaler = (uint32_t)(source_clock / 1000) - 1;
+    
+    /* Set TIMx instance */
+    timer.Instance = TIM2;
+
+    timer.Init.Period            = 0xFFFF;
+    timer.Init.Prescaler         = prescaler;
+    timer.Init.ClockDivision     = 2;  /* Divide by 4 */
+    timer.Init.CounterMode       = TIM_COUNTERMODE_UP;
+    timer.Init.RepetitionCounter = 0;
+    
+    __HAL_RCC_TIM2_CLK_ENABLE();
+
+    ret = HAL_TIM_Base_DeInit(&timer);
+    if (ret != HAL_OK) {
+        return ret;
+    }
+
+    time_count = 0;
+    ret = HAL_TIM_Base_Init(&timer);
+    if (ret != HAL_OK) {
+        return ret;
+    }
+
+    ret = HAL_TIM_Base_Start(&timer);
+    if (ret != HAL_OK) {
+        return ret;
+    }
+
+    return HAL_OK;
 }
+
 
 void HAL_IncTick(void)
 {
-  // Do nothing
+    // Do nothing
 }
+
 uint32_t HAL_GetTick(void)
 {
-  return 0;
+    const uint32_t ticks = __HAL_TIM_GET_COUNTER(&timer);
+    time_count += (ticks - time_count) & 0xFFFF;
+    return ticks;
 }
-void HAL_Delay(__IO uint32_t Delay)
-{
-  uint32_t tickstart = 0;
-  tickstart = HAL_GetTick();
-  while((HAL_GetTick() - tickstart) < Delay)
-  {
-  }
-}
+
 void HAL_SuspendTick(void)
 {
-  // Do nothing
+    HAL_TIM_Base_Start(&timer);
 }
 
 void HAL_ResumeTick(void)
 {
-  // Do nothing
+    HAL_TIM_Base_Stop(&timer);
+}
+
+static uint32_t tim2_clk_div(uint32_t apb1clkdiv)
+{
+    switch (apb1clkdiv) {
+        case RCC_CFGR_PPRE1_DIV2:
+            return 2;
+        case RCC_CFGR_PPRE1_DIV4:
+            return 4;
+        case RCC_CFGR_PPRE1_DIV8:
+            return 8;
+        case RCC_CFGR_PPRE1_DIV16:
+            return 16;
+        default:
+            return 1;
+    }
 }
