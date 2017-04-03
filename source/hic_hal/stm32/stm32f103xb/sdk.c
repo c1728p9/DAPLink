@@ -26,6 +26,7 @@
 #include "target_reset.h"
 #include "daplink.h"
 #include "util.h"
+#include "cortex_m.h"
 
 TIM_HandleTypeDef timer;
 uint32_t time_count;
@@ -54,6 +55,7 @@ void sdk_init()
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
 
+    SystemCoreClockUpdate();
     HAL_Init();
 
     /* Select HSI as system clock source to allow modification of the PLL configuration */
@@ -98,19 +100,19 @@ HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 
     HAL_RCC_GetClockConfig(&clk_init, &unused);
 
-    /* Compute the prescaler value to have TIMx counter clock equal to 1000 Hz */
+    /* Compute the prescaler value to have TIMx counter clock equal to 4000 Hz */
     source_clock = SystemCoreClock / tim2_clk_div(clk_init.APB1CLKDivider);
-    prescaler = (uint32_t)(source_clock / 1000) - 1;
-    
+    prescaler = (uint32_t)(source_clock / 4000) - 1;
+
     /* Set TIMx instance */
     timer.Instance = TIM2;
 
     timer.Init.Period            = 0xFFFF;
     timer.Init.Prescaler         = prescaler;
-    timer.Init.ClockDivision     = 2;  /* Divide by 4 */
+    timer.Init.ClockDivision     = 0;
     timer.Init.CounterMode       = TIM_COUNTERMODE_UP;
     timer.Init.RepetitionCounter = 0;
-    
+
     __HAL_RCC_TIM2_CLK_ENABLE();
 
     ret = HAL_TIM_Base_DeInit(&timer);
@@ -140,9 +142,12 @@ void HAL_IncTick(void)
 
 uint32_t HAL_GetTick(void)
 {
-    const uint32_t ticks = __HAL_TIM_GET_COUNTER(&timer);
-    time_count += (ticks - time_count) & 0xFFFF;
-    return ticks;
+    cortex_int_state_t state;
+    state = cortex_int_get_and_disable();
+    const uint32_t ticks = __HAL_TIM_GET_COUNTER(&timer) / 4;
+    time_count += (ticks - time_count) & 0x3FFF;
+    cortex_int_restore(state);
+    return time_count;
 }
 
 void HAL_SuspendTick(void)
@@ -159,13 +164,13 @@ static uint32_t tim2_clk_div(uint32_t apb1clkdiv)
 {
     switch (apb1clkdiv) {
         case RCC_CFGR_PPRE1_DIV2:
-            return 2;
+            return 1;
         case RCC_CFGR_PPRE1_DIV4:
-            return 4;
+            return 2;
         case RCC_CFGR_PPRE1_DIV8:
-            return 8;
+            return 4;
         case RCC_CFGR_PPRE1_DIV16:
-            return 16;
+            return 8;
         default:
             return 1;
     }
