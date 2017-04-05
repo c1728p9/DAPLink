@@ -25,6 +25,8 @@
 #include "uart.h"
 #include "gpio.h"
 #include "util.h"
+#include "circ_buf.h"
+#include "IO_Config.h"
 
 // For usart
 #define CDC_UART                     USART2
@@ -48,18 +50,15 @@
 #define UART_RTS_PORT                GPIOA
 #define UART_RTS_PIN                 GPIO_PIN_1
 
-// Size must be 2^n for using quick wrap around
-#define  BUFFER_SIZE (512)
 
-typedef struct {
-    volatile uint8_t  data[BUFFER_SIZE];
-    volatile uint32_t head;
-    volatile uint32_t tail;
-}ring_buf_t;
+#define RX_OVRF_MSG         "<DAPLink:Overflow>\n"
+#define RX_OVRF_MSG_SIZE    (sizeof(RX_OVRF_MSG) - 1)
+#define BUFFER_SIZE         (512)
 
-static ring_buf_t write_buffer, read_buffer;
-
-static uint32_t tx_in_progress = 0;
+circ_buf_t write_buffer;
+uint8_t write_buffer_data[BUFFER_SIZE];
+circ_buf_t read_buffer;
+uint8_t read_buffer_data[BUFFER_SIZE];
 
 static UART_Configuration configuration = {
     .Baudrate = 9600,
@@ -75,33 +74,16 @@ extern uint32_t SystemCoreClock;
 
 static void clear_buffers(void)
 {
-    memset((void *)&read_buffer, 0xBB, sizeof(ring_buf_t));
-    read_buffer.head = 0;
-    read_buffer.tail = 0;
-    memset((void *)&write_buffer, 0xBB, sizeof(ring_buf_t));
-    write_buffer.head = 0;
-    write_buffer.tail = 0;
-}
-
-static int16_t read_available(ring_buf_t *buffer)
-{
-    return ((BUFFER_SIZE + buffer->head - buffer->tail) % BUFFER_SIZE);
-}
-
-static int16_t write_free(ring_buf_t *buffer)
-{
-    int16_t cnt;
-
-    cnt = (buffer->tail - buffer->head - 1);
-    if(cnt < 0)
-        cnt += BUFFER_SIZE;
-
-    return cnt;
+    circ_buf_init(&write_buffer, write_buffer_data, sizeof(write_buffer_data));
+    circ_buf_init(&read_buffer, read_buffer_data, sizeof(read_buffer_data));
 }
 
 int32_t uart_initialize(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
+
+    CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
+    NVIC_DisableIRQ(CDC_UART_IRQn);
 
     CDC_UART_ENABLE();
     UART_PINS_PORT_ENABLE();
@@ -130,6 +112,7 @@ int32_t uart_initialize(void)
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
 
+    clear_buffers();
     NVIC_ClearPendingIRQ(CDC_UART_IRQn);
     NVIC_EnableIRQ(CDC_UART_IRQn);
 
@@ -146,7 +129,6 @@ int32_t uart_uninitialize(void)
 int32_t uart_reset(void)
 {
     uart_initialize();
-    tx_in_progress = 0;
     return 1;
 }
 
@@ -229,96 +211,43 @@ int32_t uart_get_configuration(UART_Configuration *config)
 
 int32_t uart_write_free(void)
 {
-    return write_free(&write_buffer);
+    return circ_buf_count_free(&write_buffer);
 }
 
-//TODO - update code to use atomic queues
 int32_t uart_write_data(uint8_t *data, uint16_t size)
 {
-    uint32_t cnt, len;
-
-    if(size == 0)
-        return 0;
-
-    len = write_free(&write_buffer);
-    if(len > size)
-        len = size;
-
-    cnt = len;
-    while(len--) {
-        write_buffer.data[write_buffer.head++] = *data++;
-        if(write_buffer.head >= BUFFER_SIZE)
-            write_buffer.head = 0;
-    }
-
-    if(!tx_in_progress) {
-        tx_in_progress = 1;
-        //TODO - remove if unnecissary
-        //USART_SendData(CDC_UART, write_buffer.data[write_buffer.tail++]);
-        //if(write_buffer.tail >= BUFFER_SIZE)
-        //    write_buffer.tail = 0;
-
-        // Enale tx interrupt
-        CDC_UART->CR1 |= USART_IT_TXE;
-    }
+    uint32_t cnt = circ_buf_write(&write_buffer, data, size);
+    CDC_UART->CR1 |= USART_IT_TXE;
 
     return cnt;
 }
 
 int32_t uart_read_data(uint8_t *data, uint16_t size)
 {
-    uint32_t cnt, len;
-
-    if(size == 0) {
-        return 0;
-    }
-
-    len = read_available(&read_buffer);
-    if(len > size)
-        len = size;
-
-    cnt = len;
-    while(len--) {
-        *data++ = read_buffer.data[read_buffer.tail++];
-        if(read_buffer.tail >= BUFFER_SIZE)
-            read_buffer.tail = 0;
-    }
-
-    return cnt;
+    return circ_buf_read(&read_buffer, data, size);
 }
 
 void CDC_UART_IRQn_Handler(void)
 {
-    uint8_t  dat;
-    uint32_t cnt;
-    uint32_t sr;
-
-    sr = CDC_UART->SR;
+    const uint32_t sr = CDC_UART->SR;
 
     if (sr & USART_SR_RXNE) {
-        cnt = write_free(&read_buffer);
-        dat = CDC_UART->DR;
-        if(cnt) {
-            read_buffer.data[read_buffer.head++] = dat;
-            if(read_buffer.head >= BUFFER_SIZE)
-                read_buffer.head = 0;
-            if(cnt == 1) {
-                // for flow control, need to set RTS = 1
-            }
+        uint8_t dat = CDC_UART->DR;
+        uint32_t free = circ_buf_count_free(&read_buffer);
+        if (free > RX_OVRF_MSG_SIZE) {
+            circ_buf_push(&read_buffer, dat);
+        } else if (RX_OVRF_MSG_SIZE == free) {
+            circ_buf_write(&read_buffer, (uint8_t*)RX_OVRF_MSG, RX_OVRF_MSG_SIZE);
+        } else {
+            // Drop character
         }
     }
 
     if (sr & USART_SR_TXE) {
-        cnt = read_available(&write_buffer);
-        if(cnt == 0) {
+        if (circ_buf_count_used(&write_buffer) > 0) {
+            CDC_UART->DR = circ_buf_pop(&write_buffer);
+        } else {
             CDC_UART->CR1 &= ~USART_IT_TXE;
-            tx_in_progress = 0;
-        }
-        else {
-            CDC_UART->DR = write_buffer.data[write_buffer.tail++];
-            if(write_buffer.tail >= BUFFER_SIZE)
-                write_buffer.tail = 0;
-            tx_in_progress = 1;
         }
     }
 }
