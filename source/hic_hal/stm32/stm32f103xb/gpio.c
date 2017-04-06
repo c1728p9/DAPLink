@@ -82,9 +82,10 @@ void gpio_init(void)
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(PIN_MSC_LED_PORT, &GPIO_InitStructure);
 
-    // reset button configured as gpio input_pullup
+    // reset button configured as gpio open drain output with a pullup
+    HAL_GPIO_WritePin(nRESET_PIN_PORT, nRESET_PIN, GPIO_PIN_SET);
     GPIO_InitStructure.Pin = nRESET_PIN;
-    GPIO_InitStructure.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_OD;
     GPIO_InitStructure.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(nRESET_PIN_PORT, &GPIO_InitStructure);
 
@@ -128,30 +129,21 @@ uint8_t gpio_get_sw_reset(void)
     static uint8_t last_reset_forward_pressed = 0;
     uint8_t reset_forward_pressed;
     uint8_t reset_pressed;
+    reset_forward_pressed = 0; // Forwarded reset not supported yet
 
-    // Set nRESET_PIN to input pull-up, then read status
-    pin_in_init(nRESET_PIN_PORT, nRESET_PIN_Bit, 1);
-    busy_wait(5);
-    reset_forward_pressed = (nRESET_PIN_PORT->IDR & nRESET_PIN) ? 0 : 1;
     // Forward reset if the state of the button has changed
     //    This must be done on button changes so it does not interfere
     //    with other reset sources such as programming or CDC Break
     if(last_reset_forward_pressed != reset_forward_pressed) {
-#if defined(DAPLINK_IF)
         if(reset_forward_pressed) {
             target_set_state(RESET_HOLD);
         }
         else {
             target_set_state(RESET_RUN);
         }
-#endif
         last_reset_forward_pressed = reset_forward_pressed;
     }
     reset_pressed = reset_forward_pressed || ((nRESET_PIN_PORT->IDR & nRESET_PIN) ? 0 : 1);
-    // Config nRESET_PIN to output
-    pin_out_init(nRESET_PIN_PORT, nRESET_PIN_Bit);
-    nRESET_PIN_PORT->BSRR = nRESET_PIN;
-
     return !reset_pressed;
 }
 

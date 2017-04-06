@@ -114,6 +114,20 @@ static __inline void pin_out_init(GPIO_TypeDef* GPIOx, uint8_t pin_bit)
     }
 }
 
+static __inline void pin_out_od_init(GPIO_TypeDef* GPIOx, uint8_t pin_bit)
+{
+    if(pin_bit >= 8)
+    {
+        GPIOx->CRH &= ~(0x0000000F << ((pin_bit-8) << 2));
+        GPIOx->CRH |= ( ((uint32_t)(0x01|0x03) & 0x0F) << ((pin_bit-8) << 2) );
+    }
+    else
+    {
+        GPIOx->CRL &= ~(0x0000000F << ((pin_bit) << 2));
+        GPIOx->CRL |= ( ((uint32_t)(0x01|0x03) & 0x0F) << ((pin_bit) << 2) );
+    }
+}
+
 static __inline void pin_in_init(GPIO_TypeDef* GPIOx, uint8_t pin_bit, uint8_t mode)
 {
     uint8_t config;
@@ -209,7 +223,7 @@ static __inline void PORT_SWD_SETUP(void)
 
     pin_in_init(SWDIO_IN_PIN_PORT, SWDIO_IN_PIN_Bit, 1);
     // Set RESET HIGH
-    pin_out_init(nRESET_PIN_PORT, nRESET_PIN_Bit);
+    pin_out_od_init(nRESET_PIN_PORT, nRESET_PIN_Bit);//TODO - fix reset logic
     nRESET_PIN_PORT->BSRR = nRESET_PIN;
 }
 
@@ -463,7 +477,7 @@ static __inline void DAP_SETUP(void)
 
     pin_in_init(SWDIO_IN_PIN_PORT, SWDIO_IN_PIN_Bit, 1);
 
-    pin_out_init(nRESET_PIN_PORT, nRESET_PIN_Bit);
+    pin_out_od_init(nRESET_PIN_PORT, nRESET_PIN_Bit);
     nRESET_PIN_PORT->BSRR = nRESET_PIN;
 
     pin_out_init(CONNECTED_LED_PORT, CONNECTED_LED_PIN_Bit);
