@@ -83,7 +83,7 @@ int32_t uart_initialize(void)
     GPIO_InitTypeDef GPIO_InitStructure;
 
     CDC_UART->CR1 &= ~(USART_IT_TXE | USART_IT_RXNE);
-    NVIC_DisableIRQ(CDC_UART_IRQn);
+    clear_buffers();
 
     CDC_UART_ENABLE();
     UART_PINS_PORT_ENABLE();
@@ -112,8 +112,6 @@ int32_t uart_initialize(void)
     GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;
     HAL_GPIO_Init(UART_RTS_PORT, &GPIO_InitStructure);
 
-    clear_buffers();
-    NVIC_ClearPendingIRQ(CDC_UART_IRQn);
     NVIC_EnableIRQ(CDC_UART_IRQn);
 
     return 1;
@@ -128,7 +126,10 @@ int32_t uart_uninitialize(void)
 
 int32_t uart_reset(void)
 {
-    uart_initialize();
+    const uint32_t cr1 = CDC_UART->CR1;
+    CDC_UART->CR1 = cr1 & ~(USART_IT_TXE | USART_IT_RXNE);
+    clear_buffers();
+    CDC_UART->CR1 = cr1 & ~USART_IT_TXE;
     return 1;
 }
 
