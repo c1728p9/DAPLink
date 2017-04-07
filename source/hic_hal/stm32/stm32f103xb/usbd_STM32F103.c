@@ -82,9 +82,9 @@ void EP_Status(U32 EPNum, U32 stat)
     val = EPxREG(num);
 
     if (EPNum & 0x80) {                   /* IN Endpoint                        */
-        EPxREG(num) = (val ^ (stat & EP_STAT_TX)) & (EP_MASK | EP_STAT_TX);
+        EPxREG(num) = ((val ^ (stat & EP_STAT_TX)) & (EP_MASK | EP_STAT_TX)) | EP_CTR_TX | EP_CTR_RX;
     } else {                              /* OUT Endpoint                       */
-        EPxREG(num) = (val ^ (stat & EP_STAT_RX)) & (EP_MASK | EP_STAT_RX);
+        EPxREG(num) = ((val ^ (stat & EP_STAT_RX)) & (EP_MASK | EP_STAT_RX)) | EP_CTR_TX | EP_CTR_RX;
     }
 }
 
@@ -648,25 +648,8 @@ void USBD_Handler(void)
         num = istr & ISTR_EP_ID;
         val = EPxREG(num);
 
-        if (val & EP_CTR_RX) {
-            EPxREG(num) = val & ~EP_CTR_RX & EP_MASK;
-#ifdef __RTX
-
-            if (USBD_RTX_EPTask[num]) {
-                isr_evt_set((val & EP_SETUP) ? USBD_EVT_SETUP : USBD_EVT_OUT, USBD_RTX_EPTask[num]);
-            }
-
-#else
-
-            if (USBD_P_EP[num]) {
-                USBD_P_EP[num]((val & EP_SETUP) ? USBD_EVT_SETUP : USBD_EVT_OUT);
-            }
-
-#endif
-        }
-
         if (val & EP_CTR_TX) {
-            EPxREG(num) = val & ~EP_CTR_TX & EP_MASK;
+            EPxREG(num) = EP_CTR_RX | (val & ~EP_CTR_TX & EP_MASK);
 #ifdef __RTX
 
             if (USBD_RTX_EPTask[num]) {
@@ -677,6 +660,23 @@ void USBD_Handler(void)
 
             if (USBD_P_EP[num]) {
                 USBD_P_EP[num](USBD_EVT_IN);
+            }
+
+#endif
+        }
+
+        if (val & EP_CTR_RX) {
+            EPxREG(num) = EP_CTR_TX | (val & ~EP_CTR_RX & EP_MASK);
+#ifdef __RTX
+
+            if (USBD_RTX_EPTask[num]) {
+                isr_evt_set((val & EP_SETUP) ? USBD_EVT_SETUP : USBD_EVT_OUT, USBD_RTX_EPTask[num]);
+            }
+
+#else
+
+            if (USBD_P_EP[num]) {
+                USBD_P_EP[num]((val & EP_SETUP) ? USBD_EVT_SETUP : USBD_EVT_OUT);
             }
 
 #endif
