@@ -119,12 +119,12 @@ static __inline void pin_out_od_init(GPIO_TypeDef* GPIOx, uint8_t pin_bit)
     if(pin_bit >= 8)
     {
         GPIOx->CRH &= ~(0x0000000F << ((pin_bit-8) << 2));
-        GPIOx->CRH |= ( ((uint32_t)(0x01|0x03) & 0x0F) << ((pin_bit-8) << 2) );
+        GPIOx->CRH |= ( ((uint32_t)(0x04|0x03) & 0x0F) << ((pin_bit-8) << 2) );
     }
     else
     {
         GPIOx->CRL &= ~(0x0000000F << ((pin_bit) << 2));
-        GPIOx->CRL |= ( ((uint32_t)(0x01|0x03) & 0x0F) << ((pin_bit) << 2) );
+        GPIOx->CRL |= ( ((uint32_t)(0x04|0x03) & 0x0F) << ((pin_bit) << 2) );
     }
 }
 
