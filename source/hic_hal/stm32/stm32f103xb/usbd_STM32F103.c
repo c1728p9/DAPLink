@@ -581,9 +581,23 @@ void USB_LP_CAN1_RX0_IRQHandler(void)
         while ((istr = ISTR) & ISTR_CTR) {
             num = istr & ISTR_EP_ID;
             val = EPxREG(num);
-            //TODO - filter out zero length packets
-            stat_enque(((val & VAL_MASK) << VAL_SHIFT) | 
-                       ((num & EP_NUM_MASK) << EP_NUM_SHIFT));
+
+            // Process and filter out the zero length status out endpoint to prevent
+            // the next SETUP packet from being dropped.
+            if ((0 == num) && (val & EP_CTR_RX) && !(val & EP_SETUP)
+                    && (0 == ((pBUF_DSCR + num)->COUNT_RX & EP_COUNT_MASK))) {
+                if (val & EP_CTR_TX) {
+                    // Drop the RX event but not TX
+                    stat_enque((((val & VAL_MASK) & ~EP_CTR_RX) << VAL_SHIFT) | 
+                               ((num & EP_NUM_MASK) << EP_NUM_SHIFT));
+                } else {
+                    // Drop the event
+                }
+            } else {
+                stat_enque(((val & VAL_MASK) << VAL_SHIFT) | 
+                           ((num & EP_NUM_MASK) << EP_NUM_SHIFT));
+            }
+
 
             if (val & EP_CTR_RX) {
                 EPxREG(num) = EP_VAL_UNCHANGED(val) & ~EP_CTR_RX;
@@ -719,7 +733,6 @@ void USBD_Handler(void)
 
     /* Endpoint Interrupts                                                      */
     while ((istr & ISTR_CTR) && !stat_is_empty()) {
-        //os_dly_wait(1);
         num_val = stat_deque();
         num = (num_val >> EP_NUM_SHIFT) & EP_NUM_MASK;
         val = (num_val >> VAL_SHIFT) & VAL_MASK;
