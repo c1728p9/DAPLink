@@ -51,7 +51,7 @@ EP_BUF_DSCR *pBUF_DSCR = (EP_BUF_DSCR *)USB_PMA_ADDR; /* Ptr to EP Buf Desc   */
 
 U16 FreeBufAddr;                        /* Endpoint Free Buffer Address       */
 
-uint32_t StatQueue[(USBD_EP_NUM + 1) * 2 * 2 + 1];//TODO - adjust size
+uint32_t StatQueue[(USBD_EP_NUM + 1) * 2 + 1];
 uint32_t StatQueueHead = 0;
 uint32_t StatQueueTail = 0;
 uint32_t LastIstr = 0;
@@ -579,7 +579,6 @@ void USB_LP_CAN1_RX0_IRQHandler(void)
     ISTR = ~(istr & USB_ISTR_W0C_MASK);
     if (istr & ISTR_CTR) {
         while ((istr = ISTR) & ISTR_CTR) {
-            ISTR = ~ISTR_CTR;//TODO - unnecissary?
             num = istr & ISTR_EP_ID;
             val = EPxREG(num);
             //TODO - filter out zero length packets
