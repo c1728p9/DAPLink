@@ -135,12 +135,14 @@ uint8_t gpio_get_sw_reset(void)
     //    This must be done on button changes so it does not interfere
     //    with other reset sources such as programming or CDC Break
     if(last_reset_forward_pressed != reset_forward_pressed) {
+#if defined(DAPLINK_IF)
         if(reset_forward_pressed) {
             target_set_state(RESET_HOLD);
         }
         else {
             target_set_state(RESET_RUN);
         }
+#endif
         last_reset_forward_pressed = reset_forward_pressed;
     }
     reset_pressed = reset_forward_pressed || ((nRESET_PIN_PORT->IDR & nRESET_PIN) ? 0 : 1);
