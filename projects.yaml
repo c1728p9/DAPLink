@@ -289,3 +289,35 @@ projects:
         - *module_if
         - *module_hic_stm32f103xb
         - records/board/stm32f103rb.yaml
+    stm32f103xb_stm32l152re_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32l152re.yaml
+    stm32f103xb_stm32l053r8_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32l053r8.yaml
+    stm32f103xb_stm32f072rb_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32f072rb.yaml
+    stm32f103xb_stm32f334r8_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32f334r8.yaml
+    stm32f103xb_stm32f411re_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32f411re.yaml
+    stm32f103xb_stm32l476rg_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32l476rg.yaml
+    stm32f103xb_stm32f746zg_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32f746zg.yaml
+    stm32f103xb_stm32f207zg_if:
+        - *module_if
+        - *module_hic_stm32f103xb
+        - records/board/stm32f207zg.yaml

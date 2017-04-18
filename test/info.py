@@ -98,7 +98,15 @@ SUPPORTED_CONFIGURATIONS = [
     (   0x311,      'k20dx_frdmk66f_if',                        'k20dx_bl',         None                                    ), # TODO - set target to 'FRDM-K66F' when mbed-os supports this
     (   0x350,      'k20dx_xdot_l151_if',                       'k20dx_bl',         None                                    ), # TODO - set target to 'MTS-xDot-L151CC' when mbed-os supports this
     (   0x700,      'stm32f103xb_stm32f103rb_if',               'stm32f103xb_bl',   'ST-Nucleo-F103RB'                      ),
+    (   0x710,      'stm32f103xb_stm32l152re_if',               'stm32f103xb_bl',   'ST-Nucleo-L152RE'                      ),
+    (   0x715,      'stm32f103xb_stm32l053r8_if',               'stm32f103xb_bl',   'ST-Nucleo-L053R8'                      ),
+    (   0x720,      'stm32f103xb_stm32f072rb_if',               'stm32f103xb_bl',   'ST-Nucleo-F072RB'                      ),
+    (   0x735,      'stm32f103xb_stm32f334r8_if',               'stm32f103xb_bl',   'ST-Nucleo-F334R8'                      ),
+    (   0x740,      'stm32f103xb_stm32f103rb_if',               'stm32f103xb_bl',   'ST-Nucleo-F411RE'                      ),
+    (   0x765,      'stm32f103xb_stm32l476rg_if',               'stm32f103xb_bl',   'ST-Nucleo-L476RG'                      ),
+    (   0x816,      'stm32f103xb_stm32f746zg_if',               'stm32f103xb_bl',   'ST-Nucleo-F746ZG'                      ),
     (   0x824,      'lpc11u35_lpc824xpresso_if',                None,               'LPCXpresso824-MAX'                     ),
+    (   0x835,      'stm32f103xb_stm32f207zg_if',               'stm32f103xb_bl',   'ST-Nucleo-F207ZG'                      ),
     (   0x1017,     'lpc11u35_hrm1017_if',                      None,               'mbed-HRM1017'                          ),
     (   0x1018,     'lpc11u35_ssci824_if',                      None,               'Switch-Science-mbed-LPC824'            ),
     (   0x1019,     'lpc11u35_sscity_if',                       None,               'Switch-Science-mbed-TY51822r3'         ),

@@ -1,0 +1,7 @@
+common:
+    sources:
+        board:
+            - source/board/stm32l053r8.c
+        target:
+            - source/target/st/stm32l053r8/target.c
+            - source/target/st/target_reset.c
