@@ -22,6 +22,7 @@
 #include "stdbool.h"
 #include "ctype.h"
 #include "string.h"
+#include "RTL.h"
 
 #include "vfs_manager.h"
 #include "macro.h"
@@ -67,6 +68,7 @@ static uint32_t get_file_size(vfs_read_cb_t read_func);
 
 static uint32_t read_file_mbed_htm(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
 static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
+static uint32_t read_file_halt_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
 static uint32_t read_file_fail_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
 static uint32_t read_file_assert_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
 static uint32_t read_file_need_bl_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors);
@@ -75,6 +77,7 @@ static void insert(uint8_t *buf, uint8_t *new_str, uint32_t strip_count);
 static void update_html_file(uint8_t *buf, uint32_t bufsize);
 static void erase_target(void);
 
+static bool building_fs;
 void vfs_user_build_filesystem()
 {
     uint32_t file_size;
@@ -88,6 +91,12 @@ void vfs_user_build_filesystem()
     file_size = get_file_size(read_file_details_txt);
     vfs_create_file("DETAILS TXT", read_file_details_txt, 0, file_size);
 
+    // HALT.TXT
+    building_fs = true;
+    file_size = get_file_size(read_file_halt_txt);
+    vfs_create_file("HALT    TXT", read_file_halt_txt, 0, file_size);
+    building_fs = false;
+    
     // FAIL.TXT
     if (vfs_mngr_get_transfer_status() != ERROR_SUCCESS) {
         file_size = get_file_size(read_file_fail_txt);
@@ -305,6 +314,24 @@ static uint32_t read_file_details_txt(uint32_t sector_offset, uint8_t *data, uin
     pos += util_write_string(buf + pos, "Remount count: ");
     pos += util_write_uint32(buf + pos, remount_count);
     pos += util_write_string(buf + pos, "\r\n");
+    return pos;
+}
+
+// File callback to be used with vfs_add_file to return file contents
+static uint32_t read_file_halt_txt(uint32_t sector_offset, uint8_t *data, uint32_t num_sectors)
+{
+    uint32_t pos;
+    char *buf = (char *)data;
+
+    if (sector_offset != 0) {
+        return 0;
+    }
+
+    pos = 0;
+    pos += util_write_string(buf + pos, "Reading this file will take 2 minutes\r\n");
+    if (!building_fs) {
+        os_dly_wait(2 * 60 * 100);
+    }
     return pos;
 }
 
