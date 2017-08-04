@@ -67,7 +67,7 @@ USB_DIR = set([
     "Out",
     "Status"
 ])
-USBTransfer = namedtuple("USBTransfer", "bus, device, endpoint, type, dir, size_or_data")
+USBTransfer = namedtuple("USBTransfer", "id, bus, device, endpoint, type, dir, size_or_data")
 FMT_CBW = "<IIIBBB"
 SIZE_CBW = calcsize(FMT_CBW)
 CBWTransfer = namedtuple("CBWTransfer", "signature, tag, data_transfer_length, flags, lun, length")
@@ -82,7 +82,7 @@ def pcap_header_and_data(data):
     return hdr, data[hdr.header_len:]
 
 
-def pcap_to_usb(data):
+def pcap_to_usb(data, packet_id):
     hdr = PcapHeader(*unpack(PCAP_HDR_FMT, data[:PCAP_HDR_SIZE]))
     contents = data[hdr.header_len:]
     ttype = PCAP_TRANSFER_TO_TYPE[hdr.transfer]
@@ -91,7 +91,7 @@ def pcap_to_usb(data):
         direction = NUM_TO_CONTROL_STAGE[stage_num]
     else:
         direction = "In" if hdr.endpoint & 0x80 else "Out"
-    return USBTransfer(hdr.bus, hdr.device, hdr.endpoint & ~0x80, ttype, direction, data[hdr.header_len:])
+    return USBTransfer(packet_id, hdr.bus, hdr.device, hdr.endpoint & ~0x80, ttype, direction, data[hdr.header_len:])
 
 
 
@@ -105,10 +105,12 @@ def pcapng_to_usb_transfers(filename):
     with open(filename, "rb") as fp:
         scanner = FileScanner(fp)
         interfaces = None
+        index = None
         usb_transfers = []
         for block in scanner:
             if block.magic_number == PCAPNG_BLOCK["SECTION_HEADER"]:
                 interfaces = []
+                index = 1
             elif block.magic_number == PCAPNG_BLOCK["INTERFACE_DESC"]:
                 print("Link type: %s" % block)
                 if block.link_type in PCAPNG_LINK:
@@ -116,7 +118,8 @@ def pcapng_to_usb_transfers(filename):
                 else:
                     log.error("Skipping interface!")
             elif block.magic_number == PCAPNG_BLOCK["ENHANCED_PACKET"]:
-                usb_transfers.append(interfaces[block.interface_id](block.packet_data))
+                usb_transfers.append(interfaces[block.interface_id](block.packet_data, index))
+                index += 1
     return usb_transfers
 
 
@@ -132,27 +135,28 @@ def usb_to_scsi(xfers):
             while cbw is None:
                 xfer = xfer_itr.next()
                 if xfer.dir != "Out":
-                    log.error("Wrong CBW direction: %s", xfer.dir)
+                    log.error("Wrong CBW direction for packet %s: %s", xfer.id, xfer.dir)
                     continue
                 if len(xfer.size_or_data) != 31:
-                    log.error("Wrong CBW size: %s", len(xfer.size_or_data))
+                    log.error("Wrong CBW size for packet %s: %s", xfer.id, len(xfer.size_or_data))
                     continue
                 if xfer.size_or_data[:4] != "USBC":
-                    log.error("Wrong CBW signature: %s", xfer.size_or_data[:4])
+                    log.error("Wrong CBW signature for packet %s: %s", xfer.id, xfer.size_or_data[:4])
                     continue
                 cbw = CBWTransfer(*unpack(FMT_CBW, xfer.size_or_data[:SIZE_CBW]))
+
 
             data = None
             if cbw.data_transfer_length > 0:
                 xfer = xfer_itr.next()
                 direction = "In" if cbw.flags & (1 << 7) else "Out"
                 if direction != xfer.dir:
-                    log.error("Wrong direction in data stage - got %s, expected %s", xfer.dir, direction)
+                    log.error("Wrong direction for packet %s in data stage - got %s, expected %s", xfer.id, xfer.dir, direction)
                 data = xfer.size_or_data
 
             xfer = xfer_itr.next()
             if xfer.dir != "In":
-                log.error("Wrong transfer direction in CSW stage: %s", xfer.dir)
+                log.error("Wrong transfer direction for packet %s in CSW stage: %s", xfer.id, xfer.dir)
             elif len(xfer.size_or_data) != 13:
                 log.error("Wrong CSW packet size: %s" % len(xfer.size_or_data))
             csw = CSWTransfer(*unpack(FMT_CSW, xfer.size_or_data[:SIZE_CSW]))
