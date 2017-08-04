@@ -123,6 +123,36 @@ def pcapng_to_usb_transfers(filename):
     return usb_transfers
 
 
+def valid_cbw(xfer):
+    if xfer is None:
+        return False
+    if xfer.dir != "Out":
+        log.error("Wrong CBW direction for packet %s: %s", xfer.id, xfer.dir)
+        return False
+    if len(xfer.size_or_data) != 31:
+        log.error("Wrong CBW size for packet %s: %s", xfer.id, len(xfer.size_or_data))
+        return False
+    if xfer.size_or_data[:4] != "USBC":
+        log.error("Wrong CBW signature for packet %s: %s", xfer.id, xfer.size_or_data[:4])
+        return False
+    return True
+
+
+def valid_csw(xfer, tag, log_error=True):
+    if xfer.dir != "In":
+        if log_error:
+            log.error("Wrong transfer direction for packet %s in CSW stage: %s", xfer.id, xfer.dir)
+        return False
+    elif len(xfer.size_or_data) != 13:
+        if log_error:
+            log.error("Wrong CSW packet size for packet %s: %s", xfer.id, len(xfer.size_or_data))
+        return False
+    csw = CSWTransfer(*unpack(FMT_CSW, xfer.size_or_data[:SIZE_CSW]))
+    if csw.tag != tag:
+        return False
+    return True
+
+
 def usb_to_scsi(xfers):
     cbw = None
     data = None
@@ -131,36 +161,28 @@ def usb_to_scsi(xfers):
     try:
         while True:
 
-            cbw = None
-            while cbw is None:
+            # Read until a valid CBW
+            while True:
                 xfer = xfer_itr.next()
-                if xfer.dir != "Out":
-                    log.error("Wrong CBW direction for packet %s: %s", xfer.id, xfer.dir)
-                    continue
-                if len(xfer.size_or_data) != 31:
-                    log.error("Wrong CBW size for packet %s: %s", xfer.id, len(xfer.size_or_data))
-                    continue
-                if xfer.size_or_data[:4] != "USBC":
-                    log.error("Wrong CBW signature for packet %s: %s", xfer.id, xfer.size_or_data[:4])
-                    continue
-                cbw = CBWTransfer(*unpack(FMT_CBW, xfer.size_or_data[:SIZE_CBW]))
+                if valid_cbw(xfer):
+                    break
+            cbw = CBWTransfer(*unpack(FMT_CBW, xfer.size_or_data[:SIZE_CBW]))
 
-
+            # Handle data stage
             data = None
-            if cbw.data_transfer_length > 0:
-                xfer = xfer_itr.next()
+            xfer = xfer_itr.next()
+            if cbw.data_transfer_length > 0 and not valid_csw(xfer, cbw.tag, log_error=False):
                 direction = "In" if cbw.flags & (1 << 7) else "Out"
                 if direction != xfer.dir:
                     log.error("Wrong direction for packet %s in data stage - got %s, expected %s", xfer.id, xfer.dir, direction)
                 data = xfer.size_or_data
+                xfer = xfer_itr.next()
 
-            xfer = xfer_itr.next()
-            if xfer.dir != "In":
-                log.error("Wrong transfer direction for packet %s in CSW stage: %s", xfer.id, xfer.dir)
-            elif len(xfer.size_or_data) != 13:
-                log.error("Wrong CSW packet size: %s" % len(xfer.size_or_data))
+            # Handle CSW stage
+            valid_csw(xfer, cbw.tag)
             csw = CSWTransfer(*unpack(FMT_CSW, xfer.size_or_data[:SIZE_CSW]))
             scsi_list.append(SCSITransfer(cbw, csw, data))
+
     except StopIteration:
         pass
     return scsi_list
