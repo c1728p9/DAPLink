@@ -77,11 +77,6 @@ CSWTransfer = namedtuple("CSWTransfer", "signature, tag, data_residue, status")
 SCSITransfer = namedtuple("SCSITransfer", "cbw, csw, data")
 
 
-def pcap_header_and_data(data):
-    hdr = PcapHeader(*unpack(PCAP_HDR_FMT, data[:PCAP_HDR_SIZE]))
-    return hdr, data[hdr.header_len:]
-
-
 def pcap_to_usb(data, packet_id):
     hdr = PcapHeader(*unpack(PCAP_HDR_FMT, data[:PCAP_HDR_SIZE]))
     contents = data[hdr.header_len:]
@@ -92,7 +87,6 @@ def pcap_to_usb(data, packet_id):
     else:
         direction = "In" if hdr.endpoint & 0x80 else "Out"
     return USBTransfer(packet_id, hdr.bus, hdr.device, hdr.endpoint & ~0x80, ttype, direction, data[hdr.header_len:])
-
 
 
 PCAPNG_LINK = {
@@ -154,8 +148,6 @@ def valid_csw(xfer, tag, log_error=True):
 
 
 def usb_to_scsi(xfers):
-    cbw = None
-    data = None
     xfer_itr = iter(xfers)
     scsi_list = []
     try:
@@ -168,7 +160,7 @@ def usb_to_scsi(xfers):
                     break
             cbw = CBWTransfer(*unpack(FMT_CBW, xfer.size_or_data[:SIZE_CBW]))
 
-            # Handle data stage
+            # Data stage
             data = None
             xfer = xfer_itr.next()
             if cbw.data_transfer_length > 0 and not valid_csw(xfer, cbw.tag, log_error=False):
