@@ -70,19 +70,8 @@ CSW_SIZE = calcsize(CSW_FMT)
 CSWTransfer = namedtuple("CSWTransfer", "signature, tag, data_residue, status")
 
 
+ScsiCbd = namedtuple("ScsiCbd", "op, misc, lba, len, ctrl, service")#TODO - renmae to CDB
 
-# op
-# lba
-# OPERATION CODE
-# LOGICAL BLOCK ADDRESS
-
-#TRANSFER LENGTH
-#PARAMETER LIST LENGTH
-#ALLOCATION LENGTH
-
-#CONTROL
-
-ScsiCmd = namedtuple("ScsiCmd", "op, misc, lba, len, ctrl, service")#TODO - renmae to CDB
 
 def valid_cbw(xfer):
     if xfer is None:
@@ -90,10 +79,10 @@ def valid_cbw(xfer):
     if xfer.dir != "Out":
         log.error("Wrong CBW direction for packet %s: %s", xfer.id, xfer.dir)
         return False
-    if len(xfer.data) != 31:
+    if len(xfer.data) != CBW_SIZE:
         log.error("Wrong CBW size for packet %s: %s", xfer.id, len(xfer.data))
         return False
-    if xfer.data[:4] != "USBC":
+    if not xfer.data.startswith(b"USBC"):
         log.error("Wrong CBW signature for packet %s: %s", xfer.id, xfer.data[:4])
         return False
     return True
@@ -104,9 +93,13 @@ def valid_csw(xfer, tag, log_error=True):
         if log_error:
             log.error("Wrong transfer direction for packet %s in CSW stage: %s", xfer.id, xfer.dir)
         return False
-    elif len(xfer.data) != 13:
+    if len(xfer.data) != CSW_SIZE:
         if log_error:
             log.error("Wrong CSW packet size for packet %s: %s", xfer.id, len(xfer.data))
+        return False
+    if not xfer.data.startswith(b"USBS"):
+        if log_error:
+            log.error("Wrong CSW signature for packet %s: %s", xfer.id, xfer.data[:4])
         return False
     csw = CSWTransfer(*unpack(CSW_FMT, xfer.data[:CSW_SIZE]))
     if csw.tag != tag:
@@ -119,14 +112,14 @@ def cb_to_cdb6(cb):
     misc = (misc_lba_hi >> 5) & 0x7
     lba_hi =  ((misc_lba_hi >> 0) & 0x1F)
     lba = (lba_hi << 16) | (lba_lo << 0)
-    return ScsiCmd(op, (misc,), lba, length, ctrl, None)
+    return ScsiCbd(op, (misc,), lba, length, ctrl, None)
 
 
 def cb_to_cdb10(cb):
     op, misc_service, lba, misc2, length, ctrl = unpack(">BBLBHB", cb[:10])
     misc1 = (misc_service >> 5) & 0x7
     service = (misc_service >> 0) & 0x1F
-    return ScsiCmd(op, (misc1, misc2), lba, length, ctrl, service)
+    return ScsiCbd(op, (misc1, misc2), lba, length, ctrl, service)
 #"op, misc, lba, len, ctrl, service"    TODO
 
 def status_to_str(status):
@@ -140,7 +133,7 @@ def status_to_str(status):
 
 class SCSITransfer(object):
 
-    def __init__(self, cbw, data, csw):
+    def __init__(self, cbw, data, csw, usb_xfers):
         self.name = "Unknown"
         self.op = unpack("<B", cbw.cb[0])[0]
         self.cbw = cbw
@@ -149,6 +142,8 @@ class SCSITransfer(object):
         self.lun = cbw.lun
         self.status = csw.status
         self.additional_info = ""
+        self.usb_xfers = usb_xfers
+        self.time = None if usb_xfers is None else usb_xfers[0].time
 
     def __str__(self):
         return "<SCSI op=%s(0x%02x) lun=%i %s status=%s (%i)>" % (self.name, self.op, self.lun, self.additional_info, status_to_str(self.status), self.status)
@@ -156,8 +151,8 @@ class SCSITransfer(object):
 
 class TestUnitReady(SCSITransfer):
 
-    def __init__(self, cbw, data, csw):
-        super(TestUnitReady, self).__init__(cbw, data, csw)
+    def __init__(self, cbw, data, csw, usb_xfers):
+        super(TestUnitReady, self).__init__(cbw, data, csw, usb_xfers)
         self.name = "TestUnitReady"
         self.cdb = cb_to_cdb6(cbw.cb)
         #assert self.op == self.cdb.op
@@ -166,8 +161,8 @@ class TestUnitReady(SCSITransfer):
 
 class Read10(SCSITransfer):
 
-    def __init__(self, cbw, data, csw):
-        super(Read10, self).__init__(cbw, data, csw)
+    def __init__(self, cbw, data, csw, usb_xfers):
+        super(Read10, self).__init__(cbw, data, csw, usb_xfers)
         self.name = "Read10"
         self.cdb = cb_to_cdb10(cbw.cb)
         self.lba = self.cdb.lba
@@ -178,8 +173,8 @@ class Read10(SCSITransfer):
 
 class Write10(SCSITransfer):
 
-    def __init__(self, cbw, data, csw):
-        super(Write10, self).__init__(cbw, data, csw)
+    def __init__(self, cbw, data, csw, usb_xfers):
+        super(Write10, self).__init__(cbw, data, csw, usb_xfers)
         self.name = "Write10"
         self.cdb = cb_to_cdb10(cbw.cb)
         self.lba = self.cdb.lba
@@ -203,38 +198,41 @@ scsi_commands = {
 
 def usb_to_scsi(xfers):
     xfer_itr = iter(xfers)
-    scsi_list = []
     try:
         while True:
+            xfers = []
 
             # Read until a valid CBW
             while True:
                 xfer = xfer_itr.next()
                 if valid_cbw(xfer):
+                    xfers.append(xfer)
                     break
             cbw = CBWTransfer(*unpack(CBW_FMT, xfer.data))
 
             # Data stage
             data = None
             xfer = xfer_itr.next()
+            xfers.append(xfer)
             if cbw.data_transfer_length > 0 and not valid_csw(xfer, cbw.tag, log_error=False):
                 direction = "In" if cbw.flags & (1 << 7) else "Out"
                 if direction != xfer.dir:
                     log.error("Wrong direction for packet %s in data stage - got %s, expected %s", xfer.id, xfer.dir, direction)
                 data = xfer.data
                 xfer = xfer_itr.next()
+                xfers.append(xfer)
 
             # Handle CSW stage
             if not valid_csw(xfer, cbw.tag):
                 continue
             csw = CSWTransfer(*unpack(CSW_FMT, xfer.data))
-            # unpack("<B", cdb[0])[0], csw.status, data,
-            transfer_factory = scsi_commands.get(bytearray(cbw.cb[0])[0], SCSITransfer)
-            scsi_list.append(transfer_factory(cbw, data, csw))
+            opcode = bytearray(cbw.cb[0])[0]
+            transfer_factory = scsi_commands.get(opcode, SCSITransfer)
+            yield transfer_factory(cbw, data, csw, tuple(xfers))
 
     except StopIteration:
-        pass
-    return scsi_list
+        return
+
 
 # Conditions to detect:
 # -Read after write
@@ -245,6 +243,13 @@ def usb_to_scsi(xfers):
 # -Extract write sequence and timing
 # -Extract read-only FS
 # -Extract FS before remount
+
+# Auto decode
+# -Device stream - Break into segments based on enumeration
+# -Segment
+#   - Detect mass storage endpoints (Bulk,
+#   - Detect hid endpoints
+#   -
 
 def main():
     xfers = pcapng_to_usb_transfers("k64f_load.pcapng")

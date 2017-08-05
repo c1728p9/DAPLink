@@ -12,4 +12,4 @@ USB_DIR = set([
     "Status"
 ])
 
-USBTransfer = namedtuple("USBTransfer", "id, bus, device, endpoint, type, dir, data")
+USBTransfer = namedtuple("USBTransfer", "id, time, events, bus, device, endpoint, type, dir, data")

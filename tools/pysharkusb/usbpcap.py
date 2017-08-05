@@ -53,4 +53,4 @@ def pcap_to_usb(data, packet_id):
         direction = NUM_TO_CONTROL_STAGE[stage_num]
     else:
         direction = "In" if hdr.endpoint & 0x80 else "Out"
-    return USBTransfer(packet_id, hdr.bus, hdr.device, hdr.endpoint & ~0x80, ttype, direction, data[hdr.header_len:])
+    return USBTransfer(packet_id, None, None, hdr.bus, hdr.device, hdr.endpoint & ~0x80, ttype, direction, data[hdr.header_len:])
