@@ -61,14 +61,13 @@ def pcapng_to_usb_transfers(filename):
                 index += 1
     return usb_transfers
 
-# TODO - rename to CBW_FMT
-FMT_CBW = "<IIIBBB16s"
-SIZE_CBW = calcsize(FMT_CBW)
+
+CBW_FMT = "<IIIBBB16s"
+CBW_SIZE = calcsize(CBW_FMT)
 CBWTransfer = namedtuple("CBWTransfer", "signature, tag, data_transfer_length, flags, lun, length, cb")
-FMT_CSW = "<IIIB"
-SIZE_CSW = calcsize(FMT_CSW)
+CSW_FMT = "<IIIB"
+CSW_SIZE = calcsize(CSW_FMT)
 CSWTransfer = namedtuple("CSWTransfer", "signature, tag, data_residue, status")
-#SCSITransfer = namedtuple("SCSITransfer", "op, status, data, cbw, cdb, csw")
 
 
 
@@ -109,7 +108,7 @@ def valid_csw(xfer, tag, log_error=True):
         if log_error:
             log.error("Wrong CSW packet size for packet %s: %s", xfer.id, len(xfer.data))
         return False
-    csw = CSWTransfer(*unpack(FMT_CSW, xfer.data[:SIZE_CSW]))
+    csw = CSWTransfer(*unpack(CSW_FMT, xfer.data[:CSW_SIZE]))
     if csw.tag != tag:
         return False
     return True
@@ -213,7 +212,7 @@ def usb_to_scsi(xfers):
                 xfer = xfer_itr.next()
                 if valid_cbw(xfer):
                     break
-            cbw = CBWTransfer(*unpack(FMT_CBW, xfer.data))
+            cbw = CBWTransfer(*unpack(CBW_FMT, xfer.data))
 
             # Data stage
             data = None
@@ -226,8 +225,9 @@ def usb_to_scsi(xfers):
                 xfer = xfer_itr.next()
 
             # Handle CSW stage
-            valid_csw(xfer, cbw.tag)
-            csw = CSWTransfer(*unpack(FMT_CSW, xfer.data[:SIZE_CSW]))
+            if not valid_csw(xfer, cbw.tag):
+                continue
+            csw = CSWTransfer(*unpack(CSW_FMT, xfer.data))
             # unpack("<B", cdb[0])[0], csw.status, data,
             transfer_factory = scsi_commands.get(bytearray(cbw.cb[0])[0], SCSITransfer)
             scsi_list.append(transfer_factory(cbw, data, csw))
@@ -236,15 +236,36 @@ def usb_to_scsi(xfers):
         pass
     return scsi_list
 
+# Conditions to detect:
+# -Read after write
+# -Out of order file transfer
+# -Non-sequential cluster chain
+
+# Features
+# -Extract write sequence and timing
+# -Extract read-only FS
+# -Extract FS before remount
 
 def main():
     xfers = pcapng_to_usb_transfers("k64f_load.pcapng")
     scsis = usb_to_scsi(xfer for xfer in xfers if xfer.endpoint == 2 and xfer.device == 10)
     ops = set()
-    for scsi in scsis:
-        #print("%s %s" % (scsi.cbw, scsi.csw))
-        print(scsi)
-        ops.add(scsi.op)
+    with open("test_fs.img", "wb") as f:
+        for scsi in scsis:
+            #print("%s %s" % (scsi.cbw, scsi.csw))
+            if scsi.op == 0x28:
+                pass
+                #f.write(scsi.data)
+            if scsi.op in (0x2a, 0x28):
+                print(scsi)
+                f.seek(512 * scsi.lba)
+                f.write(scsi.data)
+            if scsi.op == 0x00 and scsi.status != 0:
+                print(scsi)
+                break
+
+            ops.add(scsi.op)
+
     # print("Op list:")
     # for op in sorted(list(ops)):
     #     print("  0x%x" % op)
