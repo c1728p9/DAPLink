@@ -16,6 +16,24 @@ PCAPNG_BLOCK = {
 }
 
 
+
+# Event
+    # Start (read size, write data) and stop event (status, read data, write size)
+# Transfer
+    # How to handle a failed transfer? - filter them out
+    # How should control requests look?
+# Protocol
+    # SCSI
+    # HID
+    # CMSIS
+    # CDC
+    # MSD
+        # Read after write
+        # OOO fat chain
+        # OOO file write
+        # FAT filesystem
+
+
 PCAPNG_LINK = {
     249: pcap_to_usb
     #220:
@@ -43,15 +61,29 @@ def pcapng_to_usb_transfers(filename):
                 index += 1
     return usb_transfers
 
-
-FMT_CBW = "<IIIBBB"
+# TODO - rename to CBW_FMT
+FMT_CBW = "<IIIBBB16s"
 SIZE_CBW = calcsize(FMT_CBW)
-CBWTransfer = namedtuple("CBWTransfer", "signature, tag, data_transfer_length, flags, lun, length")
+CBWTransfer = namedtuple("CBWTransfer", "signature, tag, data_transfer_length, flags, lun, length, cb")
 FMT_CSW = "<IIIB"
 SIZE_CSW = calcsize(FMT_CSW)
 CSWTransfer = namedtuple("CSWTransfer", "signature, tag, data_residue, status")
-SCSITransfer = namedtuple("SCSITransfer", "cbw, csw, data")
+#SCSITransfer = namedtuple("SCSITransfer", "op, status, data, cbw, cdb, csw")
 
+
+
+# op
+# lba
+# OPERATION CODE
+# LOGICAL BLOCK ADDRESS
+
+#TRANSFER LENGTH
+#PARAMETER LIST LENGTH
+#ALLOCATION LENGTH
+
+#CONTROL
+
+ScsiCmd = namedtuple("ScsiCmd", "op, misc, lba, len, ctrl, service")#TODO - renmae to CDB
 
 def valid_cbw(xfer):
     if xfer is None:
@@ -83,6 +115,93 @@ def valid_csw(xfer, tag, log_error=True):
     return True
 
 
+def cb_to_cdb6(cb):
+    op, misc_lba_hi, lba_lo, length, ctrl = unpack("<BBHBB", cb[:6])
+    misc = (misc_lba_hi >> 5) & 0x7
+    lba_hi =  ((misc_lba_hi >> 0) & 0x1F)
+    lba = (lba_hi << 16) | (lba_lo << 0)
+    return ScsiCmd(op, (misc,), lba, length, ctrl, None)
+
+
+def cb_to_cdb10(cb):
+    op, misc_service, lba, misc2, length, ctrl = unpack(">BBLBHB", cb[:10])
+    misc1 = (misc_service >> 5) & 0x7
+    service = (misc_service >> 0) & 0x1F
+    return ScsiCmd(op, (misc1, misc2), lba, length, ctrl, service)
+#"op, misc, lba, len, ctrl, service"    TODO
+
+def status_to_str(status):
+    status_table = {
+        0: "Pass",
+        1: "Fail",
+        2: "Phase Error",
+    }
+    return status_table[status] if status in status_table else "Reserved"
+
+
+class SCSITransfer(object):
+
+    def __init__(self, cbw, data, csw):
+        self.name = "Unknown"
+        self.op = unpack("<B", cbw.cb[0])[0]
+        self.cbw = cbw
+        self.data = data
+        self.csw = csw
+        self.lun = cbw.lun
+        self.status = csw.status
+        self.additional_info = ""
+
+    def __str__(self):
+        return "<SCSI op=%s(0x%02x) lun=%i %s status=%s (%i)>" % (self.name, self.op, self.lun, self.additional_info, status_to_str(self.status), self.status)
+
+
+class TestUnitReady(SCSITransfer):
+
+    def __init__(self, cbw, data, csw):
+        super(TestUnitReady, self).__init__(cbw, data, csw)
+        self.name = "TestUnitReady"
+        self.cdb = cb_to_cdb6(cbw.cb)
+        #assert self.op == self.cdb.op
+        self.additional_info = "control=0x%x" % self.cdb.ctrl
+
+
+class Read10(SCSITransfer):
+
+    def __init__(self, cbw, data, csw):
+        super(Read10, self).__init__(cbw, data, csw)
+        self.name = "Read10"
+        self.cdb = cb_to_cdb10(cbw.cb)
+        self.lba = self.cdb.lba
+        self.len = self.cdb.len
+        self.data = data
+        self.additional_info = "lba=0x%x blocks=%i" % (self.lba, self.len)
+
+
+class Write10(SCSITransfer):
+
+    def __init__(self, cbw, data, csw):
+        super(Write10, self).__init__(cbw, data, csw)
+        self.name = "Write10"
+        self.cdb = cb_to_cdb10(cbw.cb)
+        self.lba = self.cdb.lba
+        self.len = self.cdb.len
+        self.data = data
+        self.additional_info = "lba=0x%x blocks=%i" % (self.lba, self.len)
+
+
+scsi_commands = {
+    0x00: TestUnitReady,
+    # 0x03: RequestSense, #6
+    # 0x12: Inquiry, #6
+    # 0x1a: ModeSense6
+    # #0x1e:
+    # #0x23:
+    # 0x25: ReadCapacity10,
+    0x28: Read10,
+    0x2a: Write10,
+}
+
+
 def usb_to_scsi(xfers):
     xfer_itr = iter(xfers)
     scsi_list = []
@@ -94,7 +213,7 @@ def usb_to_scsi(xfers):
                 xfer = xfer_itr.next()
                 if valid_cbw(xfer):
                     break
-            cbw = CBWTransfer(*unpack(FMT_CBW, xfer.data[:SIZE_CBW]))
+            cbw = CBWTransfer(*unpack(FMT_CBW, xfer.data))
 
             # Data stage
             data = None
@@ -109,7 +228,9 @@ def usb_to_scsi(xfers):
             # Handle CSW stage
             valid_csw(xfer, cbw.tag)
             csw = CSWTransfer(*unpack(FMT_CSW, xfer.data[:SIZE_CSW]))
-            scsi_list.append(SCSITransfer(cbw, csw, data))
+            # unpack("<B", cdb[0])[0], csw.status, data,
+            transfer_factory = scsi_commands.get(bytearray(cbw.cb[0])[0], SCSITransfer)
+            scsi_list.append(transfer_factory(cbw, data, csw))
 
     except StopIteration:
         pass
@@ -119,8 +240,17 @@ def usb_to_scsi(xfers):
 def main():
     xfers = pcapng_to_usb_transfers("k64f_load.pcapng")
     scsis = usb_to_scsi(xfer for xfer in xfers if xfer.endpoint == 2 and xfer.device == 10)
+    ops = set()
     for scsi in scsis:
-        print("%s %s" % (scsi.cbw, scsi.csw))
+        #print("%s %s" % (scsi.cbw, scsi.csw))
+        print(scsi)
+        ops.add(scsi.op)
+    # print("Op list:")
+    # for op in sorted(list(ops)):
+    #     print("  0x%x" % op)
+    #controls = [xfer for xfer in xfers if xfer.endpoint == 0]
+    #for control in controls:
+    #    print("Control: %s" % (control,))
 
 
 if __name__ == "__main__":
