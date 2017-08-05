@@ -44,13 +44,15 @@ PCAP_TRANSFER_TO_TYPE = {
     3: "Bulk"
 }
 
+
 def pcap_to_usb(data, packet_id):
     hdr = PcapHeader(*unpack(PCAP_HDR_FMT, data[:PCAP_HDR_SIZE]))
-    contents = data[hdr.header_len:]
     ttype = PCAP_TRANSFER_TO_TYPE[hdr.transfer]
     if ttype == "Control":
         stage_num, = unpack("<B", data[PCAP_HDR_SIZE:PCAP_HDR_SIZE + 1])
         direction = NUM_TO_CONTROL_STAGE[stage_num]
     else:
         direction = "In" if hdr.endpoint & 0x80 else "Out"
-    return USBTransfer(packet_id, None, None, hdr.bus, hdr.device, hdr.endpoint & ~0x80, ttype, direction, data[hdr.header_len:])
+    return USBTransfer(packet_id, None, None, hdr.bus, hdr.device,
+                       hdr.endpoint & ~0x80, ttype, direction,
+                       data[hdr.header_len:])

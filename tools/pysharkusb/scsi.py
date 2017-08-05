@@ -14,7 +14,7 @@ CSW_SIZE = calcsize(CSW_FMT)
 CSWTransfer = namedtuple("CSWTransfer", "signature, tag, data_residue, status")
 
 
-ScsiCbd = namedtuple("ScsiCbd", "op, misc, lba, len, ctrl, service")#TODO - renmae to CDB
+ScsiCbd = namedtuple("ScsiCbd", "op, misc, lba, len, ctrl, service")
 
 
 def valid_cbw(xfer):
@@ -88,6 +88,7 @@ class SCSITransfer(object):
         self.additional_info = ""
         self.usb_xfers = usb_xfers
         self.time = None if usb_xfers is None else usb_xfers[0].time
+        self.id = None if usb_xfers is None else usb_xfers[0].id
 
     def __str__(self):
         return "<SCSI op=%s(0x%02x) lun=%i %s status=%s (%i)>" % (self.name, self.op, self.lun, self.additional_info, status_to_str(self.status), self.status)

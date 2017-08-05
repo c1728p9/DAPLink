@@ -19,6 +19,27 @@ from pysharkusb import pcapng_to_usb_transfers, usb_to_scsi
 #   -
 
 # TODO - SCSI timestamps
+# TODO - SCSI index
+# TODO - time to USB
+
+# DOCS
+
+# Events - Events that have ocurred
+# -Start transfer
+# -End transfer
+# -Error
+# ------
+# Transfer - Data is physically send on the USB bus
+# -In
+# -Out
+# -Setup
+# -Status
+# ------
+# Operations - A logical combination of transfers or other operations
+# -Control
+# -SCSI
+# -CMSIS-DAP
+
 
 def main():
     xfers = pcapng_to_usb_transfers("k64f_load.pcapng")
@@ -32,10 +53,12 @@ def main():
                 #f.write(scsi.data)
             if scsi.op in (0x2a, 0x28):
                 print(scsi)
+                print("  id=%i" % scsi.id)
                 f.seek(512 * scsi.lba)
                 f.write(scsi.data)
             if scsi.op == 0x00 and scsi.status != 0:
                 print(scsi)
+                print("  id=%i" % scsi.id)
                 break
 
             ops.add(scsi.op)
