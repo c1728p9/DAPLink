@@ -125,10 +125,12 @@ SUPPORTED_CONFIGURATIONS = [
     (   0x459,      'lpc11u35_mtb_wise1530_if',                 None,               None                                    ), # TODO - set target when mbed-os supports this
     (   0x460,      'lpc11u35_mtb_wise1570_if',                 None,               None                                    ), # TODO - set target when mbed-os supports this
     (   0x700,      'stm32f103xb_stm32f103rb_if',               'stm32f103xb_bl',   'ST-Nucleo-F103RB'                      ),
+    (   0x720,      'stm32f103xb_stm32f401re_if',               'stm32f401re_bl',   'ST-Nucleo-F401RE'                      ),
     (   0x720,      'stm32f103xb_stm32f072rb_if',               'stm32f103xb_bl',   'ST-Nucleo-F072RB'                      ),
     (   0x735,      'stm32f103xb_stm32f334r8_if',               'stm32f103xb_bl',   'ST-Nucleo-F334R8'                      ),
     (   0x740,      'stm32f103xb_stm32f411re_if',               'stm32f103xb_bl',   'ST-Nucleo-F411RE'                      ),
     (   0x765,      'stm32f103xb_stm32l476rg_if',               'stm32f103xb_bl',   'ST-Nucleo-L476RG'                      ),
+    (   0x796,      'stm32f103xb_stm32f429zi_if'                'stm32f103xb_bl',   'ST-Nucleo-F429ZI'                      ),
     (   0x816,      'stm32f103xb_stm32f746zg_if',               'stm32f103xb_bl',   'ST-Nucleo-F746ZG'                      ),
     (   0x8080,     'lpc11u35_ff1705_l151_if',                  None,               'L-TEK-FF1705'                          ),
     (   0x8081,     'lpc11u35_ff_lpc546xx_if',                  None,               'L-TEK-FF-LPC546XX'                     ),
@@ -153,6 +155,7 @@ SUPPORTED_CONFIGURATIONS = [
     (   0x1120,     'sam3u2c_mkit_dk_dongle_nrf5x_if',          'sam3u2c_bl',       'Nordic-nRF51-Dongle'                   ),
     (   0x1234,     'lpc11u35_c027_if',                         None,               'u-blox-C027'                           ),
     (   0x1200,     'sam3u2c_ncs36510rf_if',                   'sam3u2c_bl',        'ncs36510'                              ),
+    (   0x1236,     'stm32f103xb_ubox_evk_odin_w2_if',         'stm32f103xb_bl',    'ublox-EVK-ODIN-W2'                     ),
     (   0x1238,     'kl26z_nina_b1_if',                        'kl26z_bl',          None                                    ), # TODO - set target to 'UBLOX_EVA_NINA' when mbed-os supports this
     (   0x2410,     'lpc11u35_mbed_cloud_connect_if',           None,               None                                    ),
     (   0x5050,     'lpc11u35_arm_watch_stm32f411_if',          None,               None                                    ),
