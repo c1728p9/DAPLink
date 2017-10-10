@@ -20,6 +20,7 @@
  */
 
 #include "target_config.h"
+#include "daplink_addr.h"
 
 const char *board_id   = "0000";
 
@@ -29,9 +30,9 @@ target_cfg_t target_device = {
     // Assume memory is regions are same size. Flash algo should ignore requests
     //  when variable sized sectors exist
     // .sector_cnt = ((.flash_end - .flash_start) / .sector_size);
-    .sector_cnt     = ((KB(127) - KB(32)) / 1024),
-    .flash_start    = KB(32),
-    .flash_end      = KB(127),
+    .sector_cnt     = (DAPLINK_ROM_IF_SIZE / 1024),
+    .flash_start    = DAPLINK_ROM_IF_START,
+    .flash_end      = DAPLINK_ROM_IF_START + DAPLINK_ROM_IF_SIZE,
     .ram_start      = 0x1fffe000,
     .ram_end        = 0x20002000,
     /* .flash_algo not needed for bootloader */
