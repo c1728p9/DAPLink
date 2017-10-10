@@ -53,8 +53,6 @@ typedef struct {
 } stream_t;
 
 typedef struct {
-    uint8_t vector_buf[FLASH_DECODER_MIN_SIZE];
-    uint8_t buf_pos;
     uint32_t flash_addr;
 } bin_state_t;
 
@@ -232,6 +230,6 @@ static error_t write_bin(void *state, const uint8_t *data, uint32_t size)
 static error_t close_bin(void *state)
 {
     error_t status;
-    status = flash_decoder_close();
+    status = flash_manager_uninit();
     return status;
 }
