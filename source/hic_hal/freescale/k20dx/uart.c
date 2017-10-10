@@ -191,57 +191,57 @@ void uart_enable_flow_control(bool enabled)
     // Flow control not implemented for this platform
 }
 
-void UART1_RX_TX_IRQHandler(void)
-{
-    uint32_t s1;
-    volatile uint8_t errorData;
-    // read interrupt status
-    s1 = UART1->S1;
-    // mask off interrupts that are not enabled
-    if (!(UART1->C2 & UART_C2_RIE_MASK)) {
-        s1 &= ~UART_S1_RDRF_MASK;
-    }
-    if (!(UART1->C2 & UART_C2_TIE_MASK)) {
-        s1 &= ~UART_S1_TDRE_MASK;
-    }
-
-    // handle character to transmit
-    if (s1 & UART_S1_TDRE_MASK) {
-        // Assert that there is data in the buffer
-        util_assert(circ_buf_count_used(&write_buffer) > 0);
-
-        // Send out data
-        UART1->D = circ_buf_pop(&write_buffer);
-        // Turn off the transmitter if that was the last byte
-        if (circ_buf_count_used(&write_buffer) == 0) {
-            // disable TIE interrupt
-            UART1->C2 &= ~(UART_C2_TIE_MASK);
-        }
-    }
-
-    // handle received character
-    if (s1 & UART_S1_RDRF_MASK) {
-        if ((s1 & UART_S1_NF_MASK) || (s1 & UART_S1_FE_MASK)) {
-            errorData = UART1->D;
-        } else {
-            uint32_t free;
-            uint8_t data;
-            
-            data = UART1->D;
-            free = circ_buf_count_free(&read_buffer);
-            if (free > RX_OVRF_MSG_SIZE) {
-                circ_buf_push(&read_buffer, data);
-            } else if (config_get_overflow_detect()) {
-                if (RX_OVRF_MSG_SIZE == free) {
-                    circ_buf_write(&read_buffer, (uint8_t*)RX_OVRF_MSG, RX_OVRF_MSG_SIZE);
-                } else {
-                    // Drop newest
-                }
-            } else {
-                // Drop oldest
-                circ_buf_pop(&read_buffer);
-                circ_buf_push(&read_buffer, data);
-            }
-        }
-    }
-}
+//void UART1_RX_TX_IRQHandler(void)
+//{
+//    uint32_t s1;
+//    volatile uint8_t errorData;
+//    // read interrupt status
+//    s1 = UART1->S1;
+//    // mask off interrupts that are not enabled
+//    if (!(UART1->C2 & UART_C2_RIE_MASK)) {
+//        s1 &= ~UART_S1_RDRF_MASK;
+//    }
+//    if (!(UART1->C2 & UART_C2_TIE_MASK)) {
+//        s1 &= ~UART_S1_TDRE_MASK;
+//    }
+//
+//    // handle character to transmit
+//    if (s1 & UART_S1_TDRE_MASK) {
+//        // Assert that there is data in the buffer
+//        util_assert(circ_buf_count_used(&write_buffer) > 0);
+//
+//        // Send out data
+//        UART1->D = circ_buf_pop(&write_buffer);
+//        // Turn off the transmitter if that was the last byte
+//        if (circ_buf_count_used(&write_buffer) == 0) {
+//            // disable TIE interrupt
+//            UART1->C2 &= ~(UART_C2_TIE_MASK);
+//        }
+//    }
+//
+//    // handle received character
+//    if (s1 & UART_S1_RDRF_MASK) {
+//        if ((s1 & UART_S1_NF_MASK) || (s1 & UART_S1_FE_MASK)) {
+//            errorData = UART1->D;
+//        } else {
+//            uint32_t free;
+//            uint8_t data;
+//            
+//            data = UART1->D;
+//            free = circ_buf_count_free(&read_buffer);
+//            if (free > RX_OVRF_MSG_SIZE) {
+//                circ_buf_push(&read_buffer, data);
+//            } else if (config_get_overflow_detect()) {
+//                if (RX_OVRF_MSG_SIZE == free) {
+//                    circ_buf_write(&read_buffer, (uint8_t*)RX_OVRF_MSG, RX_OVRF_MSG_SIZE);
+//                } else {
+//                    // Drop newest
+//                }
+//            } else {
+//                // Drop oldest
+//                circ_buf_pop(&read_buffer);
+//                circ_buf_push(&read_buffer, data);
+//            }
+//        }
+//    }
+//}
