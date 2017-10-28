@@ -54,6 +54,13 @@ const flash_intf_t *const flash_intf_target = &flash_intf;
 
 static error_t target_flash_init()
 {
+		// Verify and lock SWD Port TID/Operation..
+		if (!swd_lock_operation(SWD_LOCK_OPERATION_FLASH))
+		{
+			util_assert(0);
+			return ERROR_BUSY;
+		}
+
     const program_target_t *const flash = target_device.flash_algo;
 
     if (0 == target_set_state(RESET_PROGRAM)) {
@@ -74,6 +81,13 @@ static error_t target_flash_init()
 
 static error_t target_flash_uninit(void)
 {
+		// Verify and lock SWD Port TID/Operation..
+		if (!swd_unlock_operation(SWD_LOCK_OPERATION_FLASH))
+		{
+			util_assert(0);
+			return ERROR_BUSY;
+		}
+		
     // Resume the target if configured to do so
     if (config_get_auto_rst()) {
         target_set_state(RESET_RUN);

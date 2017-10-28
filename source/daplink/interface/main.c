@@ -108,11 +108,14 @@ __task void timer_task_30mS(void)
 __attribute__((weak))
 void target_forward_reset(bool assert_reset)
 {
+		//swd_lock_operation(SWD_LOCK_OPERATION_RESET);
+		swd_lock_tid_self();
     if (assert_reset) {
         target_set_state(RESET_HOLD);
     } else {
         target_set_state(RESET_RUN);
     }
+		swd_unlock_tid_self();
 }
 
 // Functions called from other tasks to trigger events in the main task
@@ -213,6 +216,9 @@ __task void main_task(void)
     uint8_t thread_started = 0;
     // button state
     main_reset_state_t main_reset_button_state = MAIN_RESET_RELEASED;
+    // Initialize SWD Port locks.
+    util_assert(swd_lock_mutex_init());
+	  util_assert(swd_lock_operation(SWD_LOCK_OPERATION_HIC));
     // Initialize settings - required for asserts to work
     config_init();
     // Update bootloader if it is out of date
@@ -238,6 +244,8 @@ __task void main_task(void)
     usbd_connect(0);
     usb_state = USB_CONNECTING;
     usb_state_count = USB_CONNECT_DELAY;
+    // Unlock SWD Port after possible initial use.
+    util_assert(swd_unlock_operation(SWD_LOCK_OPERATION_HIC));
     // Start timer tasks
     os_tsk_create_user(timer_task_30mS, TIMER_TASK_30_PRIORITY, (void *)stk_timer_30_task, TIMER_TASK_30_STACK);
 

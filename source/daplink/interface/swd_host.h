@@ -22,6 +22,9 @@
 #ifndef SWDHOST_CM_H
 #define SWDHOST_CM_H
 
+#include "util.h"
+#include "tasks.h"
+#include "RTL.h"
 #include "flash_blob.h"
 #include "target_reset.h"
 #ifdef TARGET_MCU_CORTEX_A
@@ -33,6 +36,17 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum swd_lock_operation_t {
+	SWD_LOCK_OPERATION_NONE = 0,
+	SWD_LOCK_OPERATION_HIC,
+	SWD_LOCK_OPERATION_HID,
+	SWD_LOCK_OPERATION_UMS,
+	SWD_LOCK_OPERATION_CDC,
+	SWD_LOCK_OPERATION_RESET,
+	SWD_LOCK_OPERATION_SETSTATE,
+	SWD_LOCK_OPERATION_FLASH,
+} swd_lock_operation_t;
 
 uint8_t swd_init(void);
 uint8_t swd_off(void);
@@ -47,6 +61,21 @@ uint8_t swd_flash_syscall_exec(const program_syscall_t *sysCallParam, uint32_t e
 void swd_set_target_reset(uint8_t asserted);
 uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state);
 uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state);
+
+uint8_t swd_lock_mutex_init(void);
+uint8_t swd_lock_tid(OS_TID tid);
+uint8_t swd_lock_tid_self(void);
+uint8_t swd_lock_operation(swd_lock_operation_t operation);
+uint8_t swd_lock_check(void);
+uint8_t swd_lock_check_tid(OS_TID tid);
+uint8_t swd_lock_check_tid_self(void);
+uint8_t swd_lock_check_tid_any(void);
+uint8_t swd_lock_check_operation(swd_lock_operation_t operation);
+uint8_t swd_lock_check_operation_any(void);
+uint8_t swd_unlock(void);
+uint8_t swd_unlock_tid(OS_TID tid);
+uint8_t swd_unlock_tid_self(void);
+uint8_t swd_unlock_operation(swd_lock_operation_t operation);
 
 #ifdef __cplusplus
 }

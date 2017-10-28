@@ -34,6 +34,7 @@
 #endif
 #include "DAP_config.h"
 #include "DAP.h"
+#include "swd_host.h"
 
 
 #define DAP_FW_VER      "1.10"  // Firmware Version
@@ -87,6 +88,13 @@ const char TargetDeviceName   [] = TARGET_DEVICE_NAME;
 //   info:    pointer to info data
 //   return:  number of bytes in info data
 static uint8_t DAP_Info(uint8_t id, uint8_t *info) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+    util_assert(0);
+    return 0;
+  }
+
   uint8_t length = 0U;
 
   switch (id) {
@@ -168,6 +176,13 @@ static uint32_t TimerTick;
 
 // Start Timer
 static __inline void TIMER_START (uint32_t usec) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return;
+  }
+
   TimerTick = osKernelSysTick() + osKernelSysTickMicroSec(usec);
 }
 
@@ -176,6 +191,13 @@ static __inline void TIMER_STOP (void) {}
 
 // Check if Timer expired
 static __inline uint32_t TIMER_EXPIRED (void) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return;
+  }
+
   return ((osKernelSysTick() > TimerTick) ? 1U : 0U);
 }
 
@@ -183,6 +205,13 @@ static __inline uint32_t TIMER_EXPIRED (void) {
 
 // Start Timer
 static __inline void TIMER_START (uint32_t usec) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return;
+  }
+
   SysTick->VAL  = 0U;
   SysTick->LOAD = usec * (CPU_CLOCK/1000000U);
   SysTick->CTRL = (1U << SysTick_CTRL_ENABLE_Pos) |
@@ -191,11 +220,25 @@ static __inline void TIMER_START (uint32_t usec) {
 
 // Stop Timer
 static __inline void TIMER_STOP (void) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return;
+  }
+
   SysTick->CTRL = 0U;
 }
 
 // Check if Timer expired
 static __inline uint32_t TIMER_EXPIRED (void) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   return ((SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) ? 1U : 0U);
 }
 
@@ -207,6 +250,13 @@ static __inline uint32_t TIMER_EXPIRED (void) {
 // Delay for specified time
 //    delay:  delay time in ms
 void Delayms(uint32_t delay) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return;
+  }
+
   delay *= ((CPU_CLOCK/1000U) + (DELAY_SLOW_CYCLES-1U)) / DELAY_SLOW_CYCLES;
   PIN_DELAY_SLOW(delay);
 }
@@ -218,6 +268,13 @@ void Delayms(uint32_t delay) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Delay(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t delay;
 
   delay  = *(request+0) | (*(request+1) << 8);
@@ -236,6 +293,12 @@ static uint32_t DAP_Delay(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_HostStatus(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
 
   switch (*request) {
     case DAP_DEBUGGER_CONNECTED:
@@ -260,6 +323,14 @@ static uint32_t DAP_HostStatus(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Connect(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  // TODO: IMPLEMENT FUNCTIONAL LOCK
+  if (!swd_lock_tid(os_tsk_self()))
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t port;
 
   if (*request == DAP_PORT_AUTODETECT) {
@@ -295,9 +366,21 @@ static uint32_t DAP_Connect(const uint8_t *request, uint8_t *response) {
 //   response: pointer to response data
 //   return:   number of bytes in response
 static uint32_t DAP_Disconnect(uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
 
   DAP_Data.debug_port = DAP_PORT_DISABLED;
   PORT_OFF();
+
+  if (!swd_unlock_tid(os_tsk_self()))
+  {
+	util_assert(0);
+	return 0;
+  }
 
   *response = DAP_OK;
   return (1U);
@@ -308,6 +391,12 @@ static uint32_t DAP_Disconnect(uint8_t *response) {
 //   response: pointer to response data
 //   return:   number of bytes in response
 static uint32_t DAP_ResetTarget(uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
 
   *(response+1) = RESET_TARGET();
   *(response+0) = DAP_OK;
@@ -321,6 +410,13 @@ static uint32_t DAP_ResetTarget(uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWJ_Pins(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
 #if ((DAP_SWD != 0) || (DAP_JTAG != 0))
   uint32_t value;
   uint32_t select;
@@ -403,6 +499,13 @@ static uint32_t DAP_SWJ_Pins(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWJ_Clock(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
 #if ((DAP_SWD != 0) || (DAP_JTAG != 0))
   uint32_t clock;
   uint32_t delay;
@@ -449,6 +552,13 @@ static uint32_t DAP_SWJ_Clock(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWJ_Sequence(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t count;
 
   count = *request++;
@@ -473,6 +583,13 @@ static uint32_t DAP_SWJ_Sequence(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWD_Configure(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
 #if (DAP_SWD != 0)
   uint8_t value;
 
@@ -495,6 +612,13 @@ static uint32_t DAP_SWD_Configure(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_JTAG_Sequence(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t sequence_info;
   uint32_t sequence_count;
   uint32_t request_count;
@@ -538,6 +662,13 @@ static uint32_t DAP_JTAG_Sequence(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_JTAG_Configure(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t count;
 #if (DAP_JTAG != 0)
   uint32_t length;
@@ -575,6 +706,13 @@ static uint32_t DAP_JTAG_Configure(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_JTAG_IDCode(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
 #if (DAP_JTAG != 0)
   uint32_t data;
 
@@ -616,6 +754,13 @@ id_error:
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_TransferConfigure(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
 
   DAP_Data.transfer.idle_cycles = *(request+0);
   DAP_Data.transfer.retry_count = *(request+1) | (*(request+2) << 8);
@@ -633,6 +778,13 @@ static uint32_t DAP_TransferConfigure(const uint8_t *request, uint8_t *response)
 //             number of bytes in request (upper 16 bits)
 #if (DAP_SWD != 0)
 static uint32_t DAP_SWD_Transfer(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   const
   uint8_t  *request_head;
   uint32_t  request_count;
@@ -837,6 +989,13 @@ end:
 //             number of bytes in request (upper 16 bits)
 #if (DAP_JTAG != 0)
 static uint32_t DAP_JTAG_Transfer(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   const
   uint8_t  *request_head;
   uint32_t  request_count;
@@ -1056,6 +1215,13 @@ end:
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Dummy_Transfer(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   const
   uint8_t  *request_head;
   uint32_t  request_count;
@@ -1095,6 +1261,13 @@ static uint32_t DAP_Dummy_Transfer(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Transfer(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t num;
 
   switch (DAP_Data.debug_port) {
@@ -1123,6 +1296,13 @@ static uint32_t DAP_Transfer(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response
 #if (DAP_SWD != 0)
 static uint32_t DAP_SWD_TransferBlock(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t  request_count;
   uint32_t  request_value;
   uint32_t  response_count;
@@ -1213,6 +1393,13 @@ end:
 //   return:   number of bytes in response
 #if (DAP_JTAG != 0)
 static uint32_t DAP_JTAG_TransferBlock(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t  request_count;
   uint32_t  request_value;
   uint32_t  response_count;
@@ -1315,6 +1502,13 @@ end:
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_TransferBlock(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t num;
 
   switch (DAP_Data.debug_port) {
@@ -1353,6 +1547,13 @@ static uint32_t DAP_TransferBlock(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response
 #if (DAP_SWD != 0)
 static uint32_t DAP_SWD_WriteAbort(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t data;
 
   // Load data (Ignore DAP index)
@@ -1376,6 +1577,13 @@ static uint32_t DAP_SWD_WriteAbort(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response
 #if (DAP_JTAG != 0)
 static uint32_t DAP_JTAG_WriteAbort(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t data;
 
   // Device index (JTAP TAP)
@@ -1409,6 +1617,13 @@ static uint32_t DAP_JTAG_WriteAbort(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_WriteAbort(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t num;
 
   switch (DAP_Data.debug_port) {
@@ -1437,6 +1652,13 @@ static uint32_t DAP_WriteAbort(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 __weak uint32_t DAP_ProcessVendorCommand(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   *response = ID_DAP_Invalid;
   return ((1U << 16) | 1U);
 }
@@ -1448,6 +1670,13 @@ __weak uint32_t DAP_ProcessVendorCommand(const uint8_t *request, uint8_t *respon
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 uint32_t DAP_ProcessCommand(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t num;
 
   if ((*request >= ID_DAP_Vendor0) && (*request <= ID_DAP_Vendor31)) {
@@ -1555,6 +1784,13 @@ uint32_t DAP_ProcessCommand(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 uint32_t DAP_ExecuteCommand(const uint8_t *request, uint8_t *response) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return 0;
+  }
+
   uint32_t cnt, num, n;
 
   if (*request == ID_DAP_ExecuteCommands) {
@@ -1577,6 +1813,12 @@ uint32_t DAP_ExecuteCommand(const uint8_t *request, uint8_t *response) {
 
 // Setup DAP
 void DAP_Setup(void) {
+  // Verify current TID against SWD Port lock.
+  if (!swd_lock_check_tid_self())
+  {
+	util_assert(0);
+	return;
+  }
 
   // Default settings
   DAP_Data.debug_port  = 0U;
