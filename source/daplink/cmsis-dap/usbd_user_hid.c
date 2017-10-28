@@ -25,6 +25,7 @@
 #include "usb.h"
 #define __NO_USB_LIB_C
 #include "usb_config.c"
+#include "swd_host.h"
 #include "DAP_config.h"
 #include "DAP.h"
 #include "util.h"
@@ -164,9 +165,11 @@ __task void hid_process(void *argv)
     while (1) {
         // Process DAP Command
         os_sem_wait(&proc_sem, 0xFFFF);
+        dap_lock_operation(DAP_LOCK_OPERATION_HID_DEBUG);
         DAP_ExecuteCommand(USB_Request[proc_idx], temp_buf);
         memcpy(USB_Request[proc_idx], temp_buf, DAP_PACKET_SIZE);
         proc_idx = (proc_idx + 1) % DAP_PACKET_COUNT;
+        dap_unlock_operation(DAP_LOCK_OPERATION_HID_DEBUG);
         os_sem_send(&send_sem);
 
         // Send input report if USB is idle
