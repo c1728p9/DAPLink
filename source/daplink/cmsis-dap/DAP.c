@@ -325,7 +325,7 @@ static uint32_t DAP_HostStatus(const uint8_t *request, uint8_t *response) {
 static uint32_t DAP_Connect(const uint8_t *request, uint8_t *response) {
   // Verify current TID against SWD Port lock.
   // TODO: IMPLEMENT FUNCTIONAL LOCK
-  if (!swd_lock_tid(os_tsk_self()))
+  if (!swd_lock_check_tid_self())
   {
 	util_assert(0);
 	return 0;
@@ -376,7 +376,7 @@ static uint32_t DAP_Disconnect(uint8_t *response) {
   DAP_Data.debug_port = DAP_PORT_DISABLED;
   PORT_OFF();
 
-  if (!swd_unlock_tid(os_tsk_self()))
+  if (!swd_lock_check_tid_self())
   {
 	util_assert(0);
 	return 0;

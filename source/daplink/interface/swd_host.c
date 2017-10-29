@@ -107,8 +107,8 @@ static uint8_t swd_transfer_retry(uint32_t req, uint32_t *data)
 
 uint8_t swd_init(void)
 {
-	// Lock SWD Port for current TID, if possible.
-	if (!swd_lock_tid(os_tsk_self()))
+	// Verify current TID against SWD Port lock.
+	if (!swd_lock_check_tid_self())
 	{
 		util_assert(0);
 		return 0;
@@ -123,8 +123,8 @@ uint8_t swd_init(void)
 
 uint8_t swd_off(void)
 {
-	// Unlock SWD Port by current TID, if possible.
-    if (!swd_unlock_tid(os_tsk_self()))
+	// Verify current TID against SWD Port lock.
+    if (!swd_lock_check_tid_self())
     {
 		util_assert(0);
 		return 0;
@@ -1030,7 +1030,7 @@ __attribute__((weak)) void swd_set_target_reset(uint8_t asserted)
 uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 {
 	// Verify current TID against SWD Port lock.
-	if (!swd_lock_tid_self())
+	if (!swd_lock_check_tid_self())
 	{
 		util_assert(0);
 		return 0;
@@ -1248,6 +1248,6 @@ uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
 //			util_assert(0);
 //			return 0;
 //		}
-//    return 1;
+    return 1;
 }
 #endif
