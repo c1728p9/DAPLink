@@ -109,7 +109,7 @@ __weak uint8_t DAP_Unlock(void *param) {
 //   info:    pointer to info data
 //   return:  number of bytes in info data
 static uint8_t DAP_Info(uint8_t id, uint8_t *info) {
-	if (!DAP_Lock_Verify(0)) return 0;
+
   uint8_t length = 0U;
 
   switch (id) {
