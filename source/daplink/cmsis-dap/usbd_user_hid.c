@@ -165,12 +165,45 @@ __task void hid_process(void *argv)
     while (1) {
         // Process DAP Command
         os_sem_wait(&proc_sem, 0xFFFF);
-        dap_lock_operation(DAP_LOCK_OPERATION_HID_DEBUG);
-        DAP_ExecuteCommand(USB_Request[proc_idx], temp_buf);
-        memcpy(USB_Request[proc_idx], temp_buf, DAP_PACKET_SIZE);
-        proc_idx = (proc_idx + 1) % DAP_PACKET_COUNT;
-        dap_unlock_operation(DAP_LOCK_OPERATION_HID_DEBUG);
-        os_sem_send(&send_sem);
+
+        bool run_command = false;
+        switch (USB_Request[proc_idx][0]) {
+            
+            case ID_DAP_Info:
+                // No lock required to get DAP information
+                run_command = true;
+                break;
+
+            case ID_DAP_Connect:
+                // Acquire the lock on connect or return failure if it cannot be acquired
+                if (dap_lock_operation(DAP_LOCK_OPERATION_HID_DEBUG)) {
+                    run_command = true;
+                } else {
+                    USB_Request[proc_idx][1] = 0;
+                    proc_idx = (proc_idx + 1) % DAP_PACKET_COUNT;
+                    os_sem_send(&send_sem);
+                }
+                break;
+
+            default:
+                // Only run other commands if lock is held
+                if (dap_lock_verify_operation(DAP_LOCK_OPERATION_HID_DEBUG)) {
+                    run_command = true;
+                }
+                break;
+        }
+
+        if (run_command) {
+            DAP_ExecuteCommand(USB_Request[proc_idx], temp_buf);
+            memcpy(USB_Request[proc_idx], temp_buf, DAP_PACKET_SIZE);
+            proc_idx = (proc_idx + 1) % DAP_PACKET_COUNT;
+            os_sem_send(&send_sem);
+
+            // Unlock after disconnect
+            if (ID_DAP_Disconnect == USB_Request[proc_idx][0]) {
+                dap_unlock_operation(DAP_LOCK_OPERATION_HID_DEBUG);
+            }
+        }
 
         // Send input report if USB is idle
         os_mut_wait(&hid_mutex, 0xFFFF);
