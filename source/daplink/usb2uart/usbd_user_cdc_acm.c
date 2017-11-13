@@ -24,6 +24,7 @@
 #include "main.h"
 #include "target_reset.h"
 #include "uart.h"
+#include "swd_manager.h"
 
 UART_Configuration UART_Config;
 
@@ -111,23 +112,32 @@ static U32 start_break_time = 0;
 int32_t USBD_CDC_ACM_SendBreak(uint16_t dur)
 {
     uint32_t end_break_time;
+    int32_t ret = 0;
+    swd_manager_lock();
 
     // reset and send the unique id over CDC
     if (dur != 0) {
-        start_break_time = os_time_get();
-        target_set_state(RESET_HOLD);
+        if (swd_manager_start(SWD_USER_CDC_BREAK)) {
+            start_break_time = os_time_get();
+            target_set_state(RESET_HOLD);
+            ret = 1;
+        }
     } else {
         end_break_time = os_time_get();
-
-        // long reset -> send uID over serial (300 -> break > 3s)
-        if ((end_break_time - start_break_time) >= (300)) {
-            main_reset_target(1);
-        } else {
-            main_reset_target(0);
+        if (swd_manager_user() == SWD_USER_CDC_BREAK) {
+            // long reset -> send uID over serial (300 -> break > 3s)
+            if ((end_break_time - start_break_time) >= (300)) {
+                main_reset_target(1);
+            } else {
+                main_reset_target(0);
+            }
+            swd_manager_finish(SWD_USER_CDC_BREAK);
+            ret = 1;
         }
     }
 
-    return (1);
+    swd_manager_unlock();
+    return ret;
 }
 
 /** @brief  Virtual COM Port set control line state

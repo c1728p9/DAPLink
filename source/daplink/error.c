@@ -66,6 +66,10 @@ static const char *const error_message[] = {
     "Flash algorithm erase all command FAILURE",
     // ERROR_WRITE
     "Flash algorithm write command FAILURE",
+    // ERROR_INTERRUPTED
+    "Programming sequence interrupted",
+    // ERROR_BUSY
+    "Target in use", 
 
     /* File stream errors */
 

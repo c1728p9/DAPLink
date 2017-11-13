@@ -40,6 +40,7 @@
 #include "DAP.h"
 #include "bootloader.h"
 #include "cortex_m.h"
+#include "swd_manager.h"
 
 // Event flags for main task
 // Timers events
@@ -220,6 +221,8 @@ __task void main_task(void)
     main_reset_state_t main_reset_button_state = MAIN_RESET_RELEASED;
     // Initialize settings - required for asserts to work
     config_init();
+    // Initialize SWD manager - required for SWD to work
+    swd_manager_init();
     // Update bootloader if it is out of date
     bootloader_check_and_update();
     // Get a reference to this task
@@ -230,13 +233,20 @@ __task void main_task(void)
     gpio_set_hid_led(GPIO_LED_OFF);
     gpio_set_cdc_led(GPIO_LED_OFF);
     gpio_set_msc_led(GPIO_LED_OFF);
-    // Initialize the DAP
-    DAP_Setup();
-    // do some init with the target before USB and files are configured
-    prerun_board_config();
-    prerun_target_config();
-    // Update versions and IDs
-    info_init();
+
+    swd_manager_lock();
+    if (swd_manager_start(SWD_USER_SETUP)) {
+        // Initialize the DAP
+        DAP_Setup();
+        // do some init with the target before USB and files are configured
+        prerun_board_config();
+        prerun_target_config();
+        // Update versions and IDs
+        info_init();
+        swd_manager_finish(SWD_USER_SETUP);
+    }
+    swd_manager_unlock();
+
     // USB
     usbd_init();
     vfs_mngr_fs_enable(true);
@@ -361,7 +371,12 @@ __task void main_task(void)
                 case MAIN_RESET_RELEASED:
                     if (0 == gpio_get_sw_reset()) {
                         main_reset_button_state = MAIN_RESET_PRESSED;
-                        target_forward_reset(true);
+                        swd_manager_lock();
+                        if (swd_manager_start(SWD_USER_RESET_BUTTON)) {
+                            target_forward_reset(true);
+                        }
+                        swd_manager_unlock();
+                        
                     }
 
                     break;
@@ -376,7 +391,12 @@ __task void main_task(void)
                     break;
 
                 case MAIN_RESET_TARGET:
-                    target_forward_reset(false);
+                    swd_manager_lock();
+                    if (swd_manager_user() == SWD_USER_RESET_BUTTON) {
+                        target_forward_reset(false);
+                        swd_manager_finish(SWD_USER_RESET_BUTTON);
+                    }
+                    swd_manager_unlock();
                     main_reset_button_state = MAIN_RESET_RELEASED;
                     break;
             }

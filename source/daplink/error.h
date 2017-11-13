@@ -49,6 +49,8 @@ typedef enum {
     ERROR_ERASE_SECTOR,
     ERROR_ERASE_ALL,
     ERROR_WRITE,
+    ERROR_INTERRUPTED,
+    ERROR_BUSY,
 
     /* File stream errors */
     ERROR_SUCCESS_DONE,

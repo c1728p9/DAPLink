@@ -31,6 +31,7 @@
 #include "flash_intf.h"
 #include "util.h"
 #include "settings.h"
+#include "swd_manager.h"
 
 static error_t target_flash_init(void);
 static error_t target_flash_uninit(void);
@@ -56,30 +57,50 @@ static error_t target_flash_init()
 {
     const program_target_t *const flash = target_device.flash_algo;
 
+    swd_manager_lock();
+    if (!swd_manager_start(SWD_USER_TARGET_FLASH)) {
+        swd_manager_unlock();
+        return ERROR_BUSY;
+    }
+
     if (0 == target_set_state(RESET_PROGRAM)) {
+        swd_manager_finish(SWD_USER_TARGET_FLASH);
+        swd_manager_unlock();
         return ERROR_RESET;
     }
 
     // Download flash programming algorithm to target and initialise.
     if (0 == swd_write_memory(flash->algo_start, (uint8_t *)flash->algo_blob, flash->algo_size)) {
+        swd_manager_finish(SWD_USER_TARGET_FLASH);
+        swd_manager_unlock();
         return ERROR_ALGO_DL;
     }
 
     if (0 == swd_flash_syscall_exec(&flash->sys_call_s, flash->init, target_device.flash_start, 0, 0, 0)) {
+        swd_manager_finish(SWD_USER_TARGET_FLASH);
+        swd_manager_unlock();
         return ERROR_INIT;
     }
 
+    swd_manager_unlock();
     return ERROR_SUCCESS;
 }
 
 static error_t target_flash_uninit(void)
 {
+    swd_manager_lock();
+    if (SWD_USER_TARGET_FLASH != swd_manager_user()) {
+        swd_manager_unlock();
+        return ERROR_INTERRUPTED;
+    }
+
     // Resume the target if configured to do so
     if (config_get_auto_rst()) {
         target_set_state(RESET_RUN);
     }
 
     swd_off();
+    swd_manager_unlock();
     return ERROR_SUCCESS;
 }
 
@@ -87,8 +108,15 @@ static error_t target_flash_program_page(uint32_t addr, const uint8_t *buf, uint
 {
     const program_target_t *const flash = target_device.flash_algo;
 
+    swd_manager_lock();
+    if (SWD_USER_TARGET_FLASH != swd_manager_user()) {
+        swd_manager_unlock();
+        return ERROR_INTERRUPTED;
+    }
+
     // check if security bits were set
     if (1 == security_bits_set(addr, (uint8_t *)buf, size)) {
+        swd_manager_unlock();
         return ERROR_SECURITY_BITS;
     }
 
@@ -97,6 +125,7 @@ static error_t target_flash_program_page(uint32_t addr, const uint8_t *buf, uint
 
         // Write page to buffer
         if (!swd_write_memory(flash->program_buffer, (uint8_t *)buf, write_size)) {
+            swd_manager_unlock();
             return ERROR_ALGO_DATA_SEQ;
         }
 
@@ -107,6 +136,7 @@ static error_t target_flash_program_page(uint32_t addr, const uint8_t *buf, uint
                                     flash->program_buffer_size,
                                     flash->program_buffer,
                                     0)) {
+            swd_manager_unlock();
             return ERROR_WRITE;
         }
 
@@ -116,9 +146,11 @@ static error_t target_flash_program_page(uint32_t addr, const uint8_t *buf, uint
                 uint8_t rb_buf[16];
                 uint32_t verify_size = MIN(write_size, sizeof(rb_buf));
                 if (!swd_read_memory(addr, rb_buf, verify_size)) {
+                    swd_manager_unlock();
                     return ERROR_ALGO_DATA_SEQ;
                 }
                 if (memcmp(buf, rb_buf, verify_size) != 0) {
+                    swd_manager_unlock();
                     return ERROR_WRITE;
                 }
                 addr += verify_size;
@@ -133,6 +165,7 @@ static error_t target_flash_program_page(uint32_t addr, const uint8_t *buf, uint
         }
     }
 
+    swd_manager_unlock();
     return ERROR_SUCCESS;
 }
 
@@ -140,15 +173,24 @@ static error_t target_flash_erase_sector(uint32_t addr)
 {
     const program_target_t *const flash = target_device.flash_algo;
 
+    swd_manager_lock();
+    if (SWD_USER_TARGET_FLASH != swd_manager_user()) {
+        swd_manager_unlock();
+        return ERROR_INTERRUPTED;
+    }
+
     // Check to make sure the address is on a sector boundary
     if ((addr % target_device.sector_size) != 0) {
+        swd_manager_unlock();
         return ERROR_ERASE_SECTOR;
     }
 
     if (0 == swd_flash_syscall_exec(&flash->sys_call_s, flash->erase_sector, addr, 0, 0, 0)) {
+        swd_manager_unlock();
         return ERROR_ERASE_SECTOR;
     }
 
+    swd_manager_unlock();
     return ERROR_SUCCESS;
 }
 
@@ -157,7 +199,14 @@ static error_t target_flash_erase_chip(void)
     error_t status = ERROR_SUCCESS;
     const program_target_t *const flash = target_device.flash_algo;
 
+    swd_manager_lock();
+    if (SWD_USER_TARGET_FLASH != swd_manager_user()) {
+        swd_manager_unlock();
+        return ERROR_INTERRUPTED;
+    }
+
     if (0 == swd_flash_syscall_exec(&flash->sys_call_s, flash->erase_chip, 0, 0, 0, 0)) {
+        swd_manager_unlock();
         return ERROR_ERASE_ALL;
     }
 
@@ -166,6 +215,7 @@ static error_t target_flash_erase_chip(void)
         status = target_flash_init();
     }
 
+    swd_manager_unlock();
     return status;
 }
 
