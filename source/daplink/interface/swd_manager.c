@@ -21,11 +21,18 @@
 
 #include "swd_manager.h"
 #include "util.h"
+#include "macro.h"
 #include "RTL.h"
 
 static OS_MUT mutex;
 static OS_TID mutex_owner;
 static swd_user_t user;
+
+static const swd_user_t NON_INTERRUPTABLE[] = {
+    SWD_USER_RESET_BUTTON,
+    SWD_USER_TARGET_FLASH,
+    SWD_USER_SETUP,
+};
 
 void swd_manager_init()
 {
@@ -55,6 +62,17 @@ uint8_t swd_manager_start(swd_user_t operation)
 {
     util_assert(swd_manager_is_lock_owner());
 
+    if (operation == user) {
+        return 1;
+    }
+
+    if (operation != SWD_USER_NONE) {
+        for (size_t i = 0; i < ELEMENTS_IN_ARRAY(NON_INTERRUPTABLE); i++) {
+            if (user == NON_INTERRUPTABLE[i]) {
+                return 0;
+            }
+        }
+    }
     user = operation;
     return 1;
 }
