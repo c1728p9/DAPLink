@@ -27,6 +27,8 @@
 #include "debug_cm.h"
 #include "DAP_config.h"
 #include "DAP.h"
+#include "util.h"
+#include "swd_manager.h"
 
 // Default NVIC and Core debug base addresses
 // TODO: Read these addresses from ROM.
@@ -110,6 +112,7 @@ uint8_t swd_init(void)
     //TODO - DAP_Setup puts GPIO pins in a hi-z state which can
     //       cause problems on re-init.  This needs to be investigated
     //       and fixed.
+    util_assert(swd_manager_is_lock_owner());
     DAP_Setup();
     PORT_SWD_SETUP();
     return 1;
@@ -117,6 +120,7 @@ uint8_t swd_init(void)
 
 uint8_t swd_off(void)
 {
+    util_assert(swd_manager_is_lock_owner());
     PORT_OFF();
     return 1;
 }
@@ -124,6 +128,7 @@ uint8_t swd_off(void)
 // Read debug port register.
 uint8_t swd_read_dp(uint8_t adr, uint32_t *val)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t tmp_in;
     uint8_t tmp_out[4];
     uint8_t ack;
@@ -145,6 +150,7 @@ uint8_t swd_read_dp(uint8_t adr, uint32_t *val)
 // Write debug port register
 uint8_t swd_write_dp(uint8_t adr, uint32_t val)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t req;
     uint8_t data[4];
     uint8_t ack;
@@ -171,6 +177,7 @@ uint8_t swd_write_dp(uint8_t adr, uint32_t val)
 // Read access port register.
 uint8_t swd_read_ap(uint32_t adr, uint32_t *val)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint8_t tmp_in, ack;
     uint8_t tmp_out[4];
     uint32_t tmp;
@@ -200,6 +207,7 @@ uint8_t swd_read_ap(uint32_t adr, uint32_t *val)
 // Write access port register
 uint8_t swd_write_ap(uint32_t adr, uint32_t val)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint8_t data[4];
     uint8_t req, ack;
     uint32_t apsel = adr & 0xff000000;
@@ -458,6 +466,7 @@ static uint8_t swd_write_byte(uint32_t addr, uint8_t val)
 // size is in bytes.
 uint8_t swd_read_memory(uint32_t address, uint8_t *data, uint32_t size)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t n;
 
     // Read bytes until word aligned
@@ -507,6 +516,7 @@ uint8_t swd_read_memory(uint32_t address, uint8_t *data, uint32_t size)
 // size is in bytes.
 uint8_t swd_write_memory(uint32_t address, uint8_t *data, uint32_t size)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t n = 0;
 
     // Write bytes until word aligned
@@ -677,6 +687,7 @@ static uint8_t swd_wait_until_halted(void)
 
 uint8_t swd_flash_syscall_exec(const program_syscall_t *sysCallParam, uint32_t entry, uint32_t arg1, uint32_t arg2, uint32_t arg3, uint32_t arg4)
 {
+    util_assert(swd_manager_is_lock_owner());
     DEBUG_STATE state = {{0}, 0};
     // Call flash algorithm function on target and wait for result.
     state.r[0]     = arg1;                   // R0: Argument 1
@@ -775,6 +786,7 @@ static uint8_t JTAG2SWD()
 
 uint8_t swd_init_debug(void)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t tmp = 0;
     int i = 0;
     int timeout = 100;
@@ -837,11 +849,13 @@ uint8_t swd_init_debug(void)
 
 __attribute__((weak)) void swd_set_target_reset(uint8_t asserted)
 {
+    util_assert(swd_manager_is_lock_owner());
     (asserted) ? PIN_nRESET_OUT(0) : PIN_nRESET_OUT(1);
 }
 
 uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t val;
     swd_init();
 
@@ -939,6 +953,7 @@ uint8_t swd_set_target_state_hw(TARGET_RESET_STATE state)
 
 uint8_t swd_set_target_state_sw(TARGET_RESET_STATE state)
 {
+    util_assert(swd_manager_is_lock_owner());
     uint32_t val;
     swd_init();
 

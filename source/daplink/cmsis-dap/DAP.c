@@ -34,6 +34,8 @@
 #endif
 #include "DAP_config.h"
 #include "DAP.h"
+#include "util.h"
+#include "swd_manager.h"
 
 
 #define DAP_FW_VER      "1.10"  // Firmware Version
@@ -260,6 +262,7 @@ static uint32_t DAP_HostStatus(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Connect(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t port;
 
   if (*request == DAP_PORT_AUTODETECT) {
@@ -295,6 +298,7 @@ static uint32_t DAP_Connect(const uint8_t *request, uint8_t *response) {
 //   response: pointer to response data
 //   return:   number of bytes in response
 static uint32_t DAP_Disconnect(uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
 
   DAP_Data.debug_port = DAP_PORT_DISABLED;
   PORT_OFF();
@@ -308,6 +312,7 @@ static uint32_t DAP_Disconnect(uint8_t *response) {
 //   response: pointer to response data
 //   return:   number of bytes in response
 static uint32_t DAP_ResetTarget(uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
 
   *(response+1) = RESET_TARGET();
   *(response+0) = DAP_OK;
@@ -322,6 +327,7 @@ static uint32_t DAP_ResetTarget(uint8_t *response) {
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWJ_Pins(const uint8_t *request, uint8_t *response) {
 #if ((DAP_SWD != 0) || (DAP_JTAG != 0))
+  util_assert(swd_manager_is_lock_owner());
   uint32_t value;
   uint32_t select;
   uint32_t wait;
@@ -404,6 +410,7 @@ static uint32_t DAP_SWJ_Pins(const uint8_t *request, uint8_t *response) {
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWJ_Clock(const uint8_t *request, uint8_t *response) {
 #if ((DAP_SWD != 0) || (DAP_JTAG != 0))
+  util_assert(swd_manager_is_lock_owner());
   uint32_t clock;
   uint32_t delay;
 
@@ -449,6 +456,7 @@ static uint32_t DAP_SWJ_Clock(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWJ_Sequence(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t count;
 
   count = *request++;
@@ -474,6 +482,7 @@ static uint32_t DAP_SWJ_Sequence(const uint8_t *request, uint8_t *response) {
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_SWD_Configure(const uint8_t *request, uint8_t *response) {
 #if (DAP_SWD != 0)
+  util_assert(swd_manager_is_lock_owner());
   uint8_t value;
 
   value = *request;
@@ -495,6 +504,7 @@ static uint32_t DAP_SWD_Configure(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_JTAG_Sequence(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t sequence_info;
   uint32_t sequence_count;
   uint32_t request_count;
@@ -538,6 +548,7 @@ static uint32_t DAP_JTAG_Sequence(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_JTAG_Configure(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t count;
 #if (DAP_JTAG != 0)
   uint32_t length;
@@ -576,6 +587,7 @@ static uint32_t DAP_JTAG_Configure(const uint8_t *request, uint8_t *response) {
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_JTAG_IDCode(const uint8_t *request, uint8_t *response) {
 #if (DAP_JTAG != 0)
+  util_assert(swd_manager_is_lock_owner());
   uint32_t data;
 
   if (DAP_Data.debug_port != DAP_PORT_JTAG) {
@@ -616,6 +628,7 @@ id_error:
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_TransferConfigure(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
 
   DAP_Data.transfer.idle_cycles = *(request+0);
   DAP_Data.transfer.retry_count = *(request+1) | (*(request+2) << 8);
@@ -633,6 +646,7 @@ static uint32_t DAP_TransferConfigure(const uint8_t *request, uint8_t *response)
 //             number of bytes in request (upper 16 bits)
 #if (DAP_SWD != 0)
 static uint32_t DAP_SWD_Transfer(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   const
   uint8_t  *request_head;
   uint32_t  request_count;
@@ -837,6 +851,7 @@ end:
 //             number of bytes in request (upper 16 bits)
 #if (DAP_JTAG != 0)
 static uint32_t DAP_JTAG_Transfer(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   const
   uint8_t  *request_head;
   uint32_t  request_count;
@@ -1056,6 +1071,7 @@ end:
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Dummy_Transfer(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   const
   uint8_t  *request_head;
   uint32_t  request_count;
@@ -1095,6 +1111,7 @@ static uint32_t DAP_Dummy_Transfer(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_Transfer(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t num;
 
   switch (DAP_Data.debug_port) {
@@ -1123,6 +1140,7 @@ static uint32_t DAP_Transfer(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response
 #if (DAP_SWD != 0)
 static uint32_t DAP_SWD_TransferBlock(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t  request_count;
   uint32_t  request_value;
   uint32_t  response_count;
@@ -1213,6 +1231,7 @@ end:
 //   return:   number of bytes in response
 #if (DAP_JTAG != 0)
 static uint32_t DAP_JTAG_TransferBlock(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t  request_count;
   uint32_t  request_value;
   uint32_t  response_count;
@@ -1315,6 +1334,7 @@ end:
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_TransferBlock(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t num;
 
   switch (DAP_Data.debug_port) {
@@ -1353,6 +1373,7 @@ static uint32_t DAP_TransferBlock(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response
 #if (DAP_SWD != 0)
 static uint32_t DAP_SWD_WriteAbort(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t data;
 
   // Load data (Ignore DAP index)
@@ -1376,6 +1397,7 @@ static uint32_t DAP_SWD_WriteAbort(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response
 #if (DAP_JTAG != 0)
 static uint32_t DAP_JTAG_WriteAbort(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t data;
 
   // Device index (JTAP TAP)
@@ -1409,6 +1431,7 @@ static uint32_t DAP_JTAG_WriteAbort(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 static uint32_t DAP_WriteAbort(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t num;
 
   switch (DAP_Data.debug_port) {
@@ -1448,6 +1471,7 @@ __weak uint32_t DAP_ProcessVendorCommand(const uint8_t *request, uint8_t *respon
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 uint32_t DAP_ProcessCommand(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t num;
 
   if ((*request >= ID_DAP_Vendor0) && (*request <= ID_DAP_Vendor31)) {
@@ -1555,6 +1579,7 @@ uint32_t DAP_ProcessCommand(const uint8_t *request, uint8_t *response) {
 //   return:   number of bytes in response (lower 16 bits)
 //             number of bytes in request (upper 16 bits)
 uint32_t DAP_ExecuteCommand(const uint8_t *request, uint8_t *response) {
+  util_assert(swd_manager_is_lock_owner());
   uint32_t cnt, num, n;
 
   if (*request == ID_DAP_ExecuteCommands) {
@@ -1577,6 +1602,7 @@ uint32_t DAP_ExecuteCommand(const uint8_t *request, uint8_t *response) {
 
 // Setup DAP
 void DAP_Setup(void) {
+  util_assert(swd_manager_is_lock_owner());
 
   // Default settings
   DAP_Data.debug_port  = 0U;
