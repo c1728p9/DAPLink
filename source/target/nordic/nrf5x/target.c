@@ -38,9 +38,9 @@ target_cfg_t target_device = {  // Default is nRF51
 
 target_cfg_t target_device_nrf52 = {
     .sector_size    = 4096,
-    .sector_cnt     = (KB(512) / 4096),
+    .sector_cnt     = (KB(1024) / 4096),
     .flash_start    = 0,
-    .flash_end      = KB(512),
+    .flash_end      = KB(1024),
     .ram_start      = 0x20000000,
     .ram_end        = 0x20008000,
     .flash_algo     = (program_target_t *) &flash_nrf52,
