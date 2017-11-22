@@ -36,6 +36,7 @@ Provides definitions about:
 */
 
 #include "IO_Config.h"
+#include "RTL.h"
 
 // Board configuration options
 
@@ -389,6 +390,13 @@ static __forceinline uint32_t PIN_nRESET_IN(void)
     return LPC_GPIO->B[PIN_nRESET_BIT + PIN_nRESET_PORT * 32] & 0x1;
 }
 
+uint8_t swd_init_debug(void);
+uint8_t swd_write_ap(uint32_t adr, uint32_t val);
+#if !defined(AP_TAR)
+#define AP_TAR         0x04        // Transfer Address
+#define AP_DRW         0x0C        // Data Read/Write
+#endif
+
 /** nRESET I/O pin: Set Output.
 \param bit target device hardware reset pin status:
            - 0: issue a device hardware reset.
@@ -396,21 +404,32 @@ static __forceinline uint32_t PIN_nRESET_IN(void)
 */
 static __forceinline void     PIN_nRESET_OUT(uint32_t bit)
 {
-#if !defined(PIN_nRESET_FET_DRIVE)
-    // open drain logic
-    if (bit) {
-        LPC_GPIO->DIR[PIN_nRESET_PORT] &= ~PIN_nRESET;    // input (pulled high external)
-    } else {
-        LPC_GPIO->DIR[PIN_nRESET_PORT] |=  PIN_nRESET;    // output (low)
-    }
-#else
-    // FET drive logic
-    if (bit) {
-        LPC_GPIO->CLR[PIN_nRESET_PORT] = (PIN_nRESET);
-    } else {
-        LPC_GPIO->SET[PIN_nRESET_PORT] = (PIN_nRESET);
-    }
-#endif
+
+ /**There is no reset pin on the nRF51822, so we need to use a reset routine:
+	Enable reset through the RESET register in the POWER peripheral. 
+	Hold the SWDCLK and SWDIO/nRESET line low for a minimum of 100 ?s. 
+  */
+  if (bit & 1) {
+      PIN_SWDIO_OUT(1);
+      PIN_SWCLK_TCK_SET();
+	} else {
+        swd_init_debug();
+        //Set POWER->RESET on NRF to 1
+        if(!swd_write_ap(AP_TAR, 0x40000000 + 0x544)){
+            return;
+        }
+        
+		if(!swd_write_ap(AP_DRW, 1)){
+            return;
+        }
+        
+        
+          PIN_SWDIO_OUT(0);
+          PIN_SWCLK_TCK_CLR();
+          PIN_SWDIO_OUT_ENABLE();
+        //Hold RESET and SWCLK low for a minimum of 100us
+        os_dly_wait(1);
+	}
 }
 
 ///@}
