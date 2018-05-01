@@ -325,6 +325,10 @@ projects:
         - *module_if
         - *module_hic_sam3u2c
         - records/board/ublox_evk_nina_b1.yaml
+    sam3u2c_dino5_if:
+        - *module_if
+        - *module_hic_sam3u2c
+        - records/board/dino5.yaml
     lpc11u35_vbluno51_if:
         - *module_if
         - *module_hic_lpc11u35
